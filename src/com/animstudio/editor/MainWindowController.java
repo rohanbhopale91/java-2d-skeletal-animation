@@ -14,12 +14,17 @@ import com.animstudio.editor.help.AboutDialog;
 import com.animstudio.editor.project.AnimationProject;
 import com.animstudio.editor.tools.ToolManager;
 import com.animstudio.editor.ui.canvas.CanvasPane;
+import com.animstudio.editor.ui.dialogs.RecoveryDialog;
+import com.animstudio.editor.ui.dialogs.RecentFilesDialog;
 import com.animstudio.editor.ui.export.ExportDialog;
 import com.animstudio.editor.ui.hierarchy.BoneTreeView;
 import com.animstudio.editor.ui.inspector.InspectorPane;
 import com.animstudio.editor.ui.log.LogPanel;
 import com.animstudio.editor.ui.timeline.TimelinePane;
+import com.animstudio.io.AutosaveManager;
+import com.animstudio.io.ProjectFileWatcher;
 import com.animstudio.io.ProjectSerializer;
+import com.animstudio.io.RecentFiles;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
@@ -29,6 +34,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
@@ -58,6 +64,7 @@ public class MainWindowController implements Initializable {
     @FXML private CheckMenuItem showAttachmentsMenuItem;
     @FXML private CheckMenuItem onionSkinningMenuItem;
     @FXML private CheckMenuItem showLogPanelMenuItem;
+    @FXML private Menu recentFilesMenu;
     
     // Toolbar tool buttons
     @FXML private ToggleButton selectToolBtn;
@@ -85,11 +92,19 @@ public class MainWindowController implements Initializable {
     // Clipboard
     private Bone clipboardBone;
     
+    // File management
+    private RecentFiles recentFiles;
+    private AutosaveManager autosaveManager;
+    private ProjectFileWatcher fileWatcher;
+    
     private EditorContext context;
     
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         context = EditorContext.getInstance();
+        
+        // Setup file management
+        setupFileManagement();
         
         // Setup file choosers
         setupFileChoosers();
@@ -104,10 +119,198 @@ public class MainWindowController implements Initializable {
         // Setup event handlers
         setupEventHandlers();
         
+        // Setup window title binding
+        setupTitleBinding();
+        
         // Start animation loop
         startAnimationLoop();
         
+        // Check for autosave recovery on startup (delayed)
+        Platform.runLater(this::checkForRecovery);
+        
         updateStatus("Ready");
+    }
+    
+    private void setupFileManagement() {
+        // Initialize recent files
+        recentFiles = RecentFiles.getInstance();
+        recentFiles.addListener(files -> Platform.runLater(this::updateRecentFilesMenu));
+        updateRecentFilesMenu();
+        
+        // Initialize autosave
+        autosaveManager = AutosaveManager.getInstance();
+        autosaveManager.setStatusCallback(msg -> Platform.runLater(() -> updateStatus(msg)));
+        autosaveManager.start();
+        
+        // Initialize file watcher
+        fileWatcher = ProjectFileWatcher.getInstance();
+        fileWatcher.setOnFileModified(this::handleExternalFileModification);
+        fileWatcher.setOnFileDeleted(this::handleExternalFileDeletion);
+    }
+    
+    private void setupTitleBinding() {
+        // Update window title when modified state changes
+        context.modifiedProperty().addListener((obs, oldVal, newVal) -> {
+            Platform.runLater(this::updateWindowTitle);
+        });
+    }
+    
+    private void updateWindowTitle() {
+        Stage stage = getStage();
+        if (stage != null) {
+            String title = "AnimStudio";
+            if (currentFile != null) {
+                title = currentFile.getName() + " - AnimStudio";
+            }
+            if (context.isModified()) {
+                title = "* " + title;
+            }
+            stage.setTitle(title);
+        }
+    }
+    
+    private Stage getStage() {
+        if (rootPane != null && rootPane.getScene() != null) {
+            return (Stage) rootPane.getScene().getWindow();
+        }
+        return null;
+    }
+    
+    private void updateRecentFilesMenu() {
+        if (recentFilesMenu == null) return;
+        
+        recentFilesMenu.getItems().clear();
+        
+        var recentFilesList = recentFiles.getRecentFiles();
+        if (recentFilesList.isEmpty()) {
+            MenuItem empty = new MenuItem("(No recent files)");
+            empty.setDisable(true);
+            recentFilesMenu.getItems().add(empty);
+        } else {
+            for (var entry : recentFilesList) {
+                MenuItem item = new MenuItem(entry.getFileName());
+                item.setOnAction(e -> openRecentFile(entry.getFile()));
+                if (!entry.exists()) {
+                    item.setDisable(true);
+                    item.setText(entry.getFileName() + " (missing)");
+                }
+                recentFilesMenu.getItems().add(item);
+            }
+            
+            recentFilesMenu.getItems().add(new SeparatorMenuItem());
+            
+            MenuItem clearItem = new MenuItem("Clear Recent Files");
+            clearItem.setOnAction(e -> {
+                recentFiles.clear();
+            });
+            recentFilesMenu.getItems().add(clearItem);
+        }
+    }
+    
+    private void openRecentFile(File file) {
+        if (!file.exists()) {
+            showError("File Not Found", "The file no longer exists: " + file.getName());
+            recentFiles.removeFile(file);
+            return;
+        }
+        
+        if (!confirmDiscardChanges()) return;
+        
+        try {
+            ProjectSerializer serializer = new ProjectSerializer();
+            AnimationProject project = serializer.load(file.toPath());
+            context.loadProject(project);
+            currentFile = file;
+            recentFiles.addFile(file);
+            fileWatcher.watch(file);
+            updateWindowTitle();
+            updateStatus("Opened: " + file.getName());
+        } catch (Exception e) {
+            showError("Open Error", "Failed to open project: " + e.getMessage());
+        }
+    }
+    
+    private void handleExternalFileModification(File file) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("File Changed");
+        alert.setHeaderText("The file has been modified externally");
+        alert.setContentText("Do you want to reload the file?\n\n" + file.getName());
+        
+        ButtonType reloadBtn = new ButtonType("Reload");
+        ButtonType ignoreBtn = new ButtonType("Ignore", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(reloadBtn, ignoreBtn);
+        
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == reloadBtn) {
+            try {
+                ProjectSerializer serializer = new ProjectSerializer();
+                AnimationProject project = serializer.load(file.toPath());
+                context.loadProject(project);
+                context.setModified(false);
+                updateWindowTitle();
+                updateStatus("Reloaded: " + file.getName());
+            } catch (Exception e) {
+                showError("Reload Error", "Failed to reload project: " + e.getMessage());
+            }
+        }
+    }
+    
+    private void handleExternalFileDeletion(File file) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("File Deleted");
+        alert.setHeaderText("The project file has been deleted externally");
+        alert.setContentText("The file '" + file.getName() + "' no longer exists.\n" +
+                "You can save the project to a new location.");
+        alert.showAndWait();
+        
+        currentFile = null;
+        fileWatcher.stop();
+        context.setModified(true);
+        updateWindowTitle();
+    }
+    
+    private void checkForRecovery() {
+        if (autosaveManager.hasAutosaves()) {
+            Optional<File> result = RecoveryDialog.showIfNeeded(getStage());
+            result.ifPresent(file -> {
+                try {
+                    var recovered = autosaveManager.recover(file);
+                    if (recovered != null) {
+                        // For now, we don't have direct conversion from ProjectFile to AnimationProject
+                        // So just show a message
+                        updateStatus("Recovered project from autosave");
+                        logPanel.info("Recovered from autosave: " + file.getName(), "Recovery");
+                    }
+                } catch (Exception e) {
+                    showError("Recovery Error", "Failed to recover: " + e.getMessage());
+                }
+            });
+        }
+    }
+    
+    @FXML
+    private void onRecoverFromAutosave() {
+        if (!autosaveManager.hasAutosaves()) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("No Autosaves");
+            alert.setHeaderText(null);
+            alert.setContentText("There are no autosave files available.");
+            alert.showAndWait();
+            return;
+        }
+        
+        Optional<File> result = RecoveryDialog.showIfNeeded(getStage());
+        result.ifPresent(file -> {
+            try {
+                var recovered = autosaveManager.recover(file);
+                if (recovered != null) {
+                    updateStatus("Recovered project from autosave");
+                    logPanel.info("Recovered from autosave: " + file.getName(), "Recovery");
+                }
+            } catch (Exception e) {
+                showError("Recovery Error", "Failed to recover: " + e.getMessage());
+            }
+        });
     }
     
     private void setupCanvasPane() {
@@ -216,6 +419,8 @@ public class MainWindowController implements Initializable {
         if (!confirmDiscardChanges()) return;
         context.newProject();
         currentFile = null;
+        fileWatcher.stop();
+        updateWindowTitle();
         updateStatus("New project created");
     }
     
@@ -230,6 +435,9 @@ public class MainWindowController implements Initializable {
                 AnimationProject project = serializer.load(file.toPath());
                 context.loadProject(project);
                 currentFile = file;
+                recentFiles.addFile(file);
+                fileWatcher.watch(file);
+                updateWindowTitle();
                 updateStatus("Opened: " + file.getName());
             } catch (Exception e) {
                 showError("Open Error", "Failed to open project: " + e.getMessage());
@@ -256,6 +464,8 @@ public class MainWindowController implements Initializable {
             }
             saveToFile(file);
             currentFile = file;
+            fileWatcher.watch(file);
+            updateWindowTitle();
         }
     }
     
@@ -271,6 +481,9 @@ public class MainWindowController implements Initializable {
             AnimationProject project = context.createProject();
             serializer.save(project, file.toPath());
             context.setModified(false);
+            recentFiles.addFile(file);
+            fileWatcher.updateLastModifiedTime();
+            updateWindowTitle();
             updateStatus("Saved: " + file.getName());
         } catch (Exception e) {
             showError("Save Error", "Failed to save project: " + e.getMessage());
@@ -314,6 +527,8 @@ public class MainWindowController implements Initializable {
     @FXML
     private void onExit() {
         if (confirmDiscardChanges()) {
+            fileWatcher.stop();
+            autosaveManager.stop();
             Platform.exit();
         }
     }
@@ -471,6 +686,14 @@ public class MainWindowController implements Initializable {
     @FXML
     private void onDelete() {
         onDeleteBone();
+    }
+    
+    @FXML
+    private void onPreferences() {
+        com.animstudio.editor.preferences.PreferencesDialog dialog = 
+            new com.animstudio.editor.preferences.PreferencesDialog();
+        dialog.initOwner(getStage());
+        dialog.showAndWait();
     }
     
     // === Animation Menu Actions ===
@@ -697,6 +920,15 @@ public class MainWindowController implements Initializable {
      */
     public void setStatusText(String message) {
         updateStatus(message);
+    }
+    
+    /**
+     * Request a canvas repaint from external components.
+     */
+    public void requestCanvasRepaint() {
+        if (canvasPane != null) {
+            canvasPane.repaint();
+        }
     }
     
     public CanvasPane getCanvasPane() { return canvasPane; }

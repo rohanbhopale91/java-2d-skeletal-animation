@@ -17,9 +17,15 @@
                 <Menu text="_File">
                     <MenuItem text="_New Project" onAction="#onNewProject" accelerator="Ctrl+N"/>
                     <MenuItem text="_Open..." onAction="#onOpen" accelerator="Ctrl+O"/>
+                    <Menu fx:id="recentFilesMenu" text="Open _Recent">
+                        <!-- Recent files will be populated dynamically -->
+                        <MenuItem text="(No recent files)" disable="true"/>
+                    </Menu>
                     <SeparatorMenuItem/>
                     <MenuItem text="_Save" onAction="#onSave" accelerator="Ctrl+S"/>
                     <MenuItem text="Save _As..." onAction="#onSaveAs" accelerator="Ctrl+Shift+S"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Re_cover from Autosave..." onAction="#onRecoverFromAutosave"/>
                     <SeparatorMenuItem/>
                     <MenuItem text="_Export Animation..." onAction="#onExport" accelerator="Ctrl+E"/>
                     <SeparatorMenuItem/>
@@ -34,6 +40,8 @@
                     <MenuItem text="_Copy" onAction="#onCopy" accelerator="Ctrl+C"/>
                     <MenuItem text="_Paste" onAction="#onPaste" accelerator="Ctrl+V"/>
                     <MenuItem text="_Delete" onAction="#onDelete" accelerator="Delete"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_Preferences..." onAction="#onPreferences" accelerator="Ctrl+,"/>
                 </Menu>
                 
                 <Menu text="_Skeleton">

@@ -3,7 +3,11 @@ package com.animstudio.editor.ui.export;
 import com.animstudio.core.animation.AnimationClip;
 import com.animstudio.core.model.Skeleton;
 import com.animstudio.editor.EditorContext;
+import com.animstudio.editor.project.AnimationProject;
 import com.animstudio.editor.ui.canvas.CanvasPane;
+import com.animstudio.io.export.DragonBonesExporter;
+import com.animstudio.io.export.GenericJsonExporter;
+import com.animstudio.io.export.SpineExporter;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -34,7 +38,10 @@ public class ExportDialog extends Dialog<Void> {
         PNG_SEQUENCE("PNG Sequence", "png"),
         JPEG_SEQUENCE("JPEG Sequence", "jpg"),
         GIF("Animated GIF", "gif"),
-        SPRITE_SHEET("Sprite Sheet", "png");
+        SPRITE_SHEET("Sprite Sheet", "png"),
+        SPINE_JSON("Spine JSON", "json"),
+        DRAGONBONES_JSON("DragonBones JSON", "json"),
+        GENERIC_JSON("Generic JSON", "json");
         
         private final String label;
         private final String extension;
@@ -46,6 +53,15 @@ public class ExportDialog extends Dialog<Void> {
         
         public String getLabel() { return label; }
         public String getExtension() { return extension; }
+        
+        public boolean isImageFormat() {
+            return this == PNG_SEQUENCE || this == JPEG_SEQUENCE || 
+                   this == GIF || this == SPRITE_SHEET;
+        }
+        
+        public boolean isDataFormat() {
+            return this == SPINE_JSON || this == DRAGONBONES_JSON || this == GENERIC_JSON;
+        }
         
         @Override
         public String toString() { return label; }
@@ -349,7 +365,32 @@ public class ExportDialog extends Dialog<Void> {
     private void updateUIState() {
         ExportFormat format = formatCombo.getValue();
         boolean isSpriteSheet = format == ExportFormat.SPRITE_SHEET;
+        boolean isDataFormat = format.isDataFormat();
+        
+        // Sprite sheet specific
         columnsSpinner.setDisable(!isSpriteSheet);
+        
+        // Image-specific settings
+        startFrameSpinner.setDisable(isDataFormat);
+        endFrameSpinner.setDisable(isDataFormat);
+        frameRateSpinner.setDisable(isDataFormat);
+        useAnimationRangeCheckbox.setDisable(isDataFormat);
+        widthSpinner.setDisable(isDataFormat);
+        heightSpinner.setDisable(isDataFormat);
+        maintainAspectCheckbox.setDisable(isDataFormat);
+        scaleSpinner.setDisable(isDataFormat);
+        transparentBgCheckbox.setDisable(isDataFormat);
+        bgColorPicker.setDisable(isDataFormat || transparentBgCheckbox.isSelected());
+        
+        // Animation selection only needed for image exports
+        animationCombo.setDisable(isDataFormat);
+        
+        // Update filename pattern hint
+        if (isDataFormat) {
+            filenamePatternField.setPromptText("Filename set automatically for data exports");
+        } else {
+            filenamePatternField.setPromptText("frame_{0000}");
+        }
     }
     
     private void browseOutputPath() {
@@ -432,6 +473,15 @@ public class ExportDialog extends Dialog<Void> {
                     case SPRITE_SHEET:
                         exportSpriteSheet(clip, skeleton, outputDir);
                         break;
+                    case SPINE_JSON:
+                        exportSpineJson(outputDir);
+                        break;
+                    case DRAGONBONES_JSON:
+                        exportDragonBonesJson(outputDir);
+                        break;
+                    case GENERIC_JSON:
+                        exportGenericJson(outputDir);
+                        break;
                 }
                 
                 if (!exportCancelled.get()) {
@@ -495,6 +545,63 @@ public class ExportDialog extends Dialog<Void> {
             showInfo("GIF export requires additional libraries.\nExporting as PNG sequence instead.");
         });
         exportSequence(clip, skeleton, outputDir, ExportFormat.PNG_SEQUENCE);
+    }
+    
+    private void exportSpineJson(Path outputDir) throws IOException {
+        javafx.application.Platform.runLater(() -> {
+            progressBar.setProgress(-1); // Indeterminate
+            progressLabel.setText("Exporting to Spine JSON format...");
+        });
+        
+        AnimationProject project = context.createProject();
+        SpineExporter exporter = new SpineExporter();
+        
+        String filename = project.getName().replaceAll("[^a-zA-Z0-9_-]", "_") + "_spine.json";
+        File outputFile = outputDir.resolve(filename).toFile();
+        
+        exporter.export(project, outputFile);
+        
+        javafx.application.Platform.runLater(() -> {
+            progressLabel.setText("Spine JSON export complete: " + filename);
+        });
+    }
+    
+    private void exportDragonBonesJson(Path outputDir) throws IOException {
+        javafx.application.Platform.runLater(() -> {
+            progressBar.setProgress(-1); // Indeterminate
+            progressLabel.setText("Exporting to DragonBones JSON format...");
+        });
+        
+        AnimationProject project = context.createProject();
+        DragonBonesExporter exporter = new DragonBonesExporter();
+        
+        String filename = project.getName().replaceAll("[^a-zA-Z0-9_-]", "_") + "_ske.json";
+        File outputFile = outputDir.resolve(filename).toFile();
+        
+        exporter.export(project, outputFile);
+        
+        javafx.application.Platform.runLater(() -> {
+            progressLabel.setText("DragonBones JSON export complete: " + filename);
+        });
+    }
+    
+    private void exportGenericJson(Path outputDir) throws IOException {
+        javafx.application.Platform.runLater(() -> {
+            progressBar.setProgress(-1); // Indeterminate
+            progressLabel.setText("Exporting to generic JSON format...");
+        });
+        
+        AnimationProject project = context.createProject();
+        GenericJsonExporter exporter = new GenericJsonExporter();
+        
+        String filename = project.getName().replaceAll("[^a-zA-Z0-9_-]", "_") + ".json";
+        File outputFile = outputDir.resolve(filename).toFile();
+        
+        exporter.export(project, outputFile);
+        
+        javafx.application.Platform.runLater(() -> {
+            progressLabel.setText("Generic JSON export complete: " + filename);
+        });
     }
     
     private void exportSpriteSheet(AnimationClip clip, Skeleton skeleton, Path outputDir) throws IOException {

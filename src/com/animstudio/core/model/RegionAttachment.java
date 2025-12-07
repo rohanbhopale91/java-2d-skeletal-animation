@@ -8,6 +8,9 @@ public class RegionAttachment extends Attachment {
     // Reference to the atlas region
     private String regionName;
     
+    // Path to the image file (for standalone images)
+    private String imagePath;
+    
     // Source rectangle in the atlas
     private int regionX;
     private int regionY;
@@ -38,6 +41,9 @@ public class RegionAttachment extends Attachment {
     
     public String getRegionName() { return regionName; }
     public void setRegionName(String regionName) { this.regionName = regionName; }
+    
+    public String getImagePath() { return imagePath; }
+    public void setImagePath(String imagePath) { this.imagePath = imagePath; }
     
     public int getRegionX() { return regionX; }
     public void setRegionX(int regionX) { this.regionX = regionX; }

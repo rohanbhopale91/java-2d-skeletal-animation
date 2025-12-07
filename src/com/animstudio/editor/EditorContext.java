@@ -8,6 +8,7 @@ import com.animstudio.core.event.events.SelectionChangedEvent;
 import com.animstudio.core.event.events.SkeletonChangedEvent;
 import com.animstudio.core.ik.IKManager;
 import com.animstudio.core.mesh.DeformableMesh;
+import com.animstudio.core.model.AssetLibrary;
 import com.animstudio.core.model.Bone;
 import com.animstudio.core.model.Skeleton;
 import com.animstudio.core.util.TimeUtils;
@@ -64,6 +65,9 @@ public class EditorContext {
     private IKManager ikManager;
     private final List<DeformableMesh> meshes = new ArrayList<>();
     private String statusMessage = "";
+    
+    // Asset library
+    private final AssetLibrary assetLibrary = new AssetLibrary();
     
     private EditorContext() {
         this.eventBus = EngineEventBus.getInstance();
@@ -422,6 +426,10 @@ public class EditorContext {
     }
     
     public String getStatusMessage() { return statusMessage; }
+    
+    // === Asset Library ===
+    
+    public AssetLibrary getAssetLibrary() { return assetLibrary; }
     
     // === Tool Support ===
     

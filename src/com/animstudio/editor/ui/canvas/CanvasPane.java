@@ -3,7 +3,9 @@ package com.animstudio.editor.ui.canvas;
 import com.animstudio.core.animation.AnimationClip;
 import com.animstudio.core.math.Vector2;
 import com.animstudio.core.model.Bone;
+import com.animstudio.core.model.RegionAttachment;
 import com.animstudio.core.model.Skeleton;
+import com.animstudio.core.model.Slot;
 import com.animstudio.core.util.TimeUtils;
 import com.animstudio.editor.EditorContext;
 import com.animstudio.editor.commands.MoveBoneCommand;
@@ -11,12 +13,17 @@ import com.animstudio.editor.commands.RotateBoneCommand;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Affine;
+
+import java.io.FileInputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Canvas panel for displaying and editing the skeleton.
@@ -41,7 +48,12 @@ public class CanvasPane extends Pane {
     // Visual settings
     private boolean showBones = true;
     private boolean showGrid = true;
+    private boolean showAttachments = true;
     private boolean onionSkinning = false;
+    private boolean showIKConstraints = true;
+    
+    // Image cache for attachments
+    private final Map<String, Image> imageCache = new HashMap<>();
     
     private final Color backgroundColor = Color.rgb(40, 44, 52);
     private final Color gridColor = Color.rgb(60, 64, 72);
@@ -104,6 +116,11 @@ public class CanvasPane extends Pane {
             
             skeleton.updateWorldTransforms();
             drawSkeleton(skeleton);
+            
+            // Draw IK constraints
+            if (showIKConstraints) {
+                drawIKConstraints();
+            }
         }
         
         gc.restore();
@@ -233,10 +250,178 @@ public class CanvasPane extends Pane {
     private void drawSkeleton(Skeleton skeleton) {
         Bone selectedBone = EditorContext.getInstance().getSelectedBone();
         
+        // Draw attachments first (behind bones)
+        if (showAttachments) {
+            drawAttachments(skeleton);
+        }
+        
         // Draw bones
         for (Bone bone : skeleton.getBonesInOrder()) {
             boolean isSelected = bone == selectedBone;
             drawBone(bone, isSelected);
+        }
+    }
+    
+    /**
+     * Draws all slot attachments for the skeleton.
+     */
+    private void drawAttachments(Skeleton skeleton) {
+        // Sort slots by draw order
+        java.util.List<Slot> sortedSlots = new java.util.ArrayList<>(skeleton.getSlots());
+        sortedSlots.sort((a, b) -> Integer.compare(a.getDrawOrder(), b.getDrawOrder()));
+        
+        for (Slot slot : sortedSlots) {
+            if (slot.getAttachment() == null) continue;
+            if (!(slot.getAttachment() instanceof RegionAttachment)) continue;
+            
+            RegionAttachment attachment = (RegionAttachment) slot.getAttachment();
+            Bone bone = slot.getBone();
+            if (bone == null) continue;
+            
+            drawRegionAttachment(bone, slot, attachment);
+        }
+    }
+    
+    /**
+     * Draws a region attachment at the bone's position.
+     */
+    private void drawRegionAttachment(Bone bone, Slot slot, RegionAttachment attachment) {
+        String imagePath = attachment.getImagePath();
+        if (imagePath == null || imagePath.isEmpty()) return;
+        
+        // Get or load image
+        Image image = imageCache.get(imagePath);
+        if (image == null) {
+            try {
+                image = new Image(new FileInputStream(imagePath));
+                imageCache.put(imagePath, image);
+            } catch (Exception e) {
+                // Could not load image, skip
+                return;
+            }
+        }
+        
+        // Calculate world position
+        double worldX = bone.getWorldTransform().getX();
+        double worldY = bone.getWorldTransform().getY();
+        double worldRotation = bone.getWorldTransform().getRotation();
+        double worldScaleX = bone.getWorldTransform().getScaleX();
+        double worldScaleY = bone.getWorldTransform().getScaleY();
+        
+        // Apply attachment offset
+        worldX += attachment.getX() * worldScaleX;
+        worldY += attachment.getY() * worldScaleY;
+        worldRotation += attachment.getRotation();
+        worldScaleX *= attachment.getScaleX();
+        worldScaleY *= attachment.getScaleY();
+        
+        // Image dimensions
+        double width = attachment.getWidth() > 0 ? attachment.getWidth() : image.getWidth();
+        double height = attachment.getHeight() > 0 ? attachment.getHeight() : image.getHeight();
+        
+        // Pivot offset
+        double pivotX = width * attachment.getPivotX();
+        double pivotY = height * attachment.getPivotY();
+        
+        gc.save();
+        
+        // Apply slot alpha tint
+        gc.setGlobalAlpha(slot.getAlpha());
+        
+        // Transform to attachment position
+        gc.translate(worldX, worldY);
+        gc.rotate(worldRotation);
+        gc.scale(worldScaleX, worldScaleY);
+        
+        // Draw image centered on pivot
+        gc.drawImage(image, -pivotX, -pivotY, width, height);
+        
+        gc.restore();
+    }
+    
+    /**
+     * Draws IK constraint visualizations (chains and targets).
+     */
+    private void drawIKConstraints() {
+        com.animstudio.core.ik.IKManager ikManager = EditorContext.getInstance().getIKManager();
+        if (ikManager == null) return;
+        
+        for (com.animstudio.core.ik.IKConstraint constraint : ikManager.getConstraints()) {
+            if (constraint.getMix() <= 0) continue;
+            
+            java.util.List<com.animstudio.core.model.Bone> bones = constraint.getBones();
+            if (bones.isEmpty()) continue;
+            
+            // Draw chain connections with cyan highlight
+            gc.setStroke(Color.rgb(100, 220, 255, 0.7 * constraint.getMix()));
+            gc.setLineWidth(4.0 / zoom);
+            gc.setLineDashes(8 / zoom, 4 / zoom);
+            
+            for (int i = 0; i < bones.size() - 1; i++) {
+                com.animstudio.core.model.Bone b1 = bones.get(i);
+                com.animstudio.core.model.Bone b2 = bones.get(i + 1);
+                
+                double x1 = b1.getWorldTransform().getX();
+                double y1 = b1.getWorldTransform().getY();
+                double x2 = b2.getWorldTransform().getX();
+                double y2 = b2.getWorldTransform().getY();
+                
+                gc.strokeLine(x1, y1, x2, y2);
+            }
+            
+            gc.setLineDashes(null);
+            
+            // Draw target marker
+            com.animstudio.core.model.Bone target = constraint.getTarget();
+            if (target != null) {
+                double tx = target.getWorldTransform().getX();
+                double ty = target.getWorldTransform().getY();
+                double size = 12.0 / zoom;
+                
+                // Orange target cross
+                gc.setStroke(Color.rgb(255, 180, 80, 0.9));
+                gc.setLineWidth(3.0 / zoom);
+                
+                gc.strokeLine(tx - size, ty, tx + size, ty);
+                gc.strokeLine(tx, ty - size, tx, ty + size);
+                
+                // Target circle
+                gc.setFill(Color.rgb(255, 180, 80, 0.3));
+                gc.fillOval(tx - size, ty - size, size * 2, size * 2);
+                
+                gc.setStroke(Color.rgb(255, 180, 80));
+                gc.setLineWidth(2.0 / zoom);
+                gc.strokeOval(tx - size, ty - size, size * 2, size * 2);
+                
+                // Draw line from end effector to target
+                if (!bones.isEmpty()) {
+                    com.animstudio.core.model.Bone endBone = bones.get(bones.size() - 1);
+                    double endX = endBone.getWorldTransform().getX();
+                    double endY = endBone.getWorldTransform().getY();
+                    
+                    // Add bone length to get actual end point
+                    double rot = Math.toRadians(endBone.getWorldTransform().getRotation());
+                    endX += Math.cos(rot) * endBone.getLength();
+                    endY += Math.sin(rot) * endBone.getLength();
+                    
+                    gc.setStroke(Color.rgb(255, 100, 100, 0.5));
+                    gc.setLineWidth(1.5 / zoom);
+                    gc.setLineDashes(4 / zoom, 4 / zoom);
+                    gc.strokeLine(endX, endY, tx, ty);
+                    gc.setLineDashes(null);
+                }
+            }
+            
+            // Draw constraint name label
+            if (!bones.isEmpty()) {
+                com.animstudio.core.model.Bone firstBone = bones.get(0);
+                double labelX = firstBone.getWorldTransform().getX();
+                double labelY = firstBone.getWorldTransform().getY() - 15 / zoom;
+                
+                gc.setFill(Color.rgb(100, 220, 255));
+                gc.setFont(javafx.scene.text.Font.font(10 / zoom));
+                gc.fillText("IK: " + constraint.getName(), labelX, labelY);
+            }
         }
     }
     
@@ -488,7 +673,13 @@ public class CanvasPane extends Pane {
     public void setShowBones(boolean show) { this.showBones = show; repaint(); }
     public void setShowGrid(boolean show) { this.showGrid = show; repaint(); }
     public void setOnionSkinning(boolean enabled) { this.onionSkinning = enabled; repaint(); }
-    public void setShowAttachments(boolean show) { /* TODO: implement attachments layer */ repaint(); }
+    public void setShowAttachments(boolean show) { this.showAttachments = show; repaint(); }
+    public void setShowIKConstraints(boolean show) { this.showIKConstraints = show; repaint(); }
+    
+    /**
+     * Clears the image cache. Call when assets are reloaded.
+     */
+    public void clearImageCache() { imageCache.clear(); }
 
     public double getZoom() { return zoom; }
     public void setZoom(double zoom) { this.zoom = zoom; repaint(); }
