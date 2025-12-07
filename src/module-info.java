@@ -1,0 +1,50 @@
+module com.animstudio {
+    requires javafx.controls;
+    requires javafx.fxml;
+    requires javafx.graphics;
+    requires javafx.base;
+    requires javafx.swing;
+    requires javafx.web;
+    requires com.google.gson;
+    requires java.prefs;
+    requires java.logging;
+    requires java.desktop;
+    
+    opens com.animstudio.editor to javafx.fxml;
+    opens com.animstudio.editor.ui.canvas to javafx.fxml;
+    opens com.animstudio.editor.ui.hierarchy to javafx.fxml;
+    opens com.animstudio.editor.ui.inspector to javafx.fxml;
+    opens com.animstudio.editor.ui.timeline to javafx.fxml;
+    opens com.animstudio.editor.preferences to javafx.fxml;
+    opens com.animstudio.editor.help to javafx.fxml;
+    opens com.animstudio.editor.services to javafx.fxml;
+    
+    exports com.animstudio.core.math;
+    exports com.animstudio.core.model;
+    exports com.animstudio.core.animation;
+    exports com.animstudio.core.interpolation;
+    exports com.animstudio.core.mesh;
+    exports com.animstudio.core.ik;
+    exports com.animstudio.core.event;
+    exports com.animstudio.core.event.events;
+    exports com.animstudio.core.util;
+    exports com.animstudio.editor;
+    exports com.animstudio.editor.commands;
+    exports com.animstudio.editor.project;
+    exports com.animstudio.editor.tools;
+    exports com.animstudio.editor.services;
+    exports com.animstudio.editor.ui.canvas;
+    exports com.animstudio.editor.ui.hierarchy;
+    exports com.animstudio.editor.ui.inspector;
+    exports com.animstudio.editor.ui.timeline;
+    exports com.animstudio.editor.preferences;
+    exports com.animstudio.editor.help;
+    exports com.animstudio.editor.ui.log;
+    exports com.animstudio.editor.ui.export;
+    exports com.animstudio.io;
+    exports com.animstudio.io.export;
+    exports com.animstudio.io.imports;
+    exports com.animstudio.automation;
+    exports com.animstudio.automation.rules;
+    exports com.animstudio.automation.script;
+}

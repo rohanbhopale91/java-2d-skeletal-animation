@@ -1,0 +1,342 @@
+/*
+ * AnimStudio Editor CSS Theme
+ * Dark theme inspired by professional animation software
+ */
+
+/* === Root and General === */
+.root {
+    -fx-base: #2d2d30;
+    -fx-background: #1e1e1e;
+    -fx-control-inner-background: #3c3c3c;
+    -fx-accent: #007acc;
+    -fx-focus-color: #007acc;
+    -fx-faint-focus-color: transparent;
+    -fx-text-fill: #d4d4d4;
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 12px;
+}
+
+/* === Menu Bar === */
+.menu-bar {
+    -fx-background-color: #2d2d30;
+    -fx-padding: 0;
+}
+
+.menu-bar .menu {
+    -fx-background-color: transparent;
+}
+
+.menu-bar .menu .label {
+    -fx-text-fill: #d4d4d4;
+}
+
+.menu-bar .menu:hover,
+.menu-bar .menu:showing {
+    -fx-background-color: #3e3e40;
+}
+
+.context-menu {
+    -fx-background-color: #2d2d30;
+    -fx-border-color: #3e3e40;
+    -fx-border-width: 1;
+}
+
+.menu-item {
+    -fx-background-color: transparent;
+}
+
+.menu-item .label {
+    -fx-text-fill: #d4d4d4;
+}
+
+.menu-item:hover,
+.menu-item:focused {
+    -fx-background-color: #094771;
+}
+
+.separator-menu-item .line {
+    -fx-border-color: #3e3e40;
+}
+
+/* === Tool Bar === */
+.tool-bar {
+    -fx-background-color: #333337;
+    -fx-spacing: 5;
+    -fx-padding: 4 8 4 8;
+}
+
+/* === Buttons === */
+.button {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #d4d4d4;
+    -fx-background-radius: 2;
+    -fx-padding: 4 12 4 12;
+}
+
+.button:hover {
+    -fx-background-color: #4e4e52;
+}
+
+.button:pressed {
+    -fx-background-color: #094771;
+}
+
+.button:focused {
+    -fx-border-color: #007acc;
+    -fx-border-width: 1;
+}
+
+.toggle-button {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #d4d4d4;
+    -fx-background-radius: 2;
+}
+
+.toggle-button:selected {
+    -fx-background-color: #094771;
+}
+
+.toggle-button:hover {
+    -fx-background-color: #4e4e52;
+}
+
+/* === Split Pane === */
+.split-pane {
+    -fx-background-color: #1e1e1e;
+    -fx-padding: 0;
+}
+
+.split-pane-divider {
+    -fx-background-color: #3e3e40;
+    -fx-padding: 0 2 0 2;
+}
+
+.split-pane-divider:hover {
+    -fx-background-color: #007acc;
+}
+
+/* === Panels === */
+.panel {
+    -fx-background-color: #252526;
+    -fx-padding: 0;
+}
+
+.panel-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #cccccc;
+    -fx-padding: 8;
+    -fx-background-color: #333337;
+}
+
+/* === Canvas Container === */
+.canvas-container {
+    -fx-background-color: #1e1e1e;
+}
+
+/* === Timeline Container === */
+.timeline-container {
+    -fx-background-color: #252526;
+}
+
+/* === Tree View === */
+.tree-view {
+    -fx-background-color: #252526;
+}
+
+.tree-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #d4d4d4;
+    -fx-padding: 4 8 4 8;
+}
+
+.tree-cell:selected {
+    -fx-background-color: #094771;
+}
+
+.tree-cell:hover:filled {
+    -fx-background-color: #2a2d2e;
+}
+
+.tree-view .tree-disclosure-node .arrow {
+    -fx-background-color: #d4d4d4;
+}
+
+/* === Scroll Bar === */
+.scroll-bar {
+    -fx-background-color: #1e1e1e;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #424242;
+    -fx-background-radius: 0;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #4e4e52;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #424242;
+    -fx-padding: 3;
+}
+
+/* === Text Field === */
+.text-field {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #d4d4d4;
+    -fx-prompt-text-fill: #808080;
+    -fx-border-color: #3e3e40;
+    -fx-border-width: 1;
+    -fx-background-radius: 2;
+    -fx-border-radius: 2;
+}
+
+.text-field:focused {
+    -fx-border-color: #007acc;
+}
+
+/* === Spinner === */
+.spinner {
+    -fx-background-color: transparent;
+}
+
+.spinner .text-field {
+    -fx-background-color: #3c3c3c;
+}
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: #3c3c3c;
+}
+
+.spinner .increment-arrow-button:hover,
+.spinner .decrement-arrow-button:hover {
+    -fx-background-color: #4e4e52;
+}
+
+/* === Slider === */
+.slider .track {
+    -fx-background-color: #3c3c3c;
+}
+
+.slider .thumb {
+    -fx-background-color: #007acc;
+}
+
+/* === Labels === */
+.label {
+    -fx-text-fill: #d4d4d4;
+}
+
+/* === Titled Pane === */
+.titled-pane {
+    -fx-text-fill: #d4d4d4;
+}
+
+.titled-pane > .title {
+    -fx-background-color: #333337;
+}
+
+.titled-pane > .content {
+    -fx-background-color: #252526;
+    -fx-border-color: #3e3e40;
+    -fx-border-width: 0 1 1 1;
+}
+
+/* === Separator === */
+.separator .line {
+    -fx-border-color: #3e3e40;
+}
+
+/* === Status Bar === */
+.status-bar {
+    -fx-background-color: #007acc;
+}
+
+.status-bar .label {
+    -fx-text-fill: white;
+    -fx-font-size: 11px;
+}
+
+/* === Color Picker === */
+.color-picker {
+    -fx-background-color: #3c3c3c;
+}
+
+/* === Combo Box === */
+.combo-box {
+    -fx-background-color: #3c3c3c;
+}
+
+.combo-box .list-cell {
+    -fx-background-color: #3c3c3c;
+    -fx-text-fill: #d4d4d4;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #2d2d30;
+}
+
+.combo-box-popup .list-cell:hover {
+    -fx-background-color: #094771;
+}
+
+/* === Tooltip === */
+.tooltip {
+    -fx-background-color: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+    -fx-border-color: #3e3e40;
+    -fx-border-width: 1;
+    -fx-font-size: 11px;
+}
+
+/* === Dialog === */
+.dialog-pane {
+    -fx-background-color: #2d2d30;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: #333337;
+}
+
+.dialog-pane .button-bar .container {
+    -fx-background-color: #2d2d30;
+}
+
+/* === Tab Pane === */
+.tab-pane .tab-header-area {
+    -fx-background-color: #2d2d30;
+}
+
+.tab {
+    -fx-background-color: #2d2d30;
+}
+
+.tab:selected {
+    -fx-background-color: #1e1e1e;
+}
+
+.tab .tab-label {
+    -fx-text-fill: #808080;
+}
+
+.tab:selected .tab-label {
+    -fx-text-fill: #d4d4d4;
+}
+
+/* === Progress Bar === */
+.progress-bar .track {
+    -fx-background-color: #3c3c3c;
+}
+
+.progress-bar .bar {
+    -fx-background-color: #007acc;
+}

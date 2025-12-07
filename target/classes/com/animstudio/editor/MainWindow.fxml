@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:id="rootPane"
+            fx:controller="com.animstudio.editor.MainWindowController"
+            stylesheets="@editor.css"
+            prefWidth="1280" prefHeight="800">
+    
+    <!-- Menu Bar -->
+    <top>
+        <VBox>
+            <MenuBar fx:id="menuBar">
+                <Menu text="_File">
+                    <MenuItem text="_New Project" onAction="#onNewProject" accelerator="Ctrl+N"/>
+                    <MenuItem text="_Open..." onAction="#onOpen" accelerator="Ctrl+O"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_Save" onAction="#onSave" accelerator="Ctrl+S"/>
+                    <MenuItem text="Save _As..." onAction="#onSaveAs" accelerator="Ctrl+Shift+S"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_Export Animation..." onAction="#onExport" accelerator="Ctrl+E"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="E_xit" onAction="#onExit" accelerator="Alt+F4"/>
+                </Menu>
+                
+                <Menu text="_Edit">
+                    <MenuItem text="_Undo" onAction="#onUndo" accelerator="Ctrl+Z"/>
+                    <MenuItem text="_Redo" onAction="#onRedo" accelerator="Ctrl+Y"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Cu_t" onAction="#onCut" accelerator="Ctrl+X"/>
+                    <MenuItem text="_Copy" onAction="#onCopy" accelerator="Ctrl+C"/>
+                    <MenuItem text="_Paste" onAction="#onPaste" accelerator="Ctrl+V"/>
+                    <MenuItem text="_Delete" onAction="#onDelete" accelerator="Delete"/>
+                </Menu>
+                
+                <Menu text="_Skeleton">
+                    <MenuItem text="_Add Bone" onAction="#onAddBone" accelerator="Ctrl+B"/>
+                    <MenuItem text="_Delete Bone" onAction="#onDeleteBone" accelerator="Ctrl+Delete"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_Reset to Setup Pose" onAction="#onResetPose" accelerator="Ctrl+R"/>
+                    <MenuItem text="_Set as Setup Pose" onAction="#onSetSetupPose"/>
+                </Menu>
+                
+                <Menu text="_Animation">
+                    <MenuItem text="_Play/Pause" onAction="#onPlay" accelerator="Space"/>
+                    <MenuItem text="_Stop" onAction="#onStop" accelerator="Escape"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Add _Keyframe" onAction="#onAddKeyframe" accelerator="K"/>
+                    <MenuItem text="Remove Keyframe" onAction="#onRemoveKeyframe" accelerator="Shift+K"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="New Animation..." onAction="#onNewAnimation"/>
+                    <MenuItem text="Duplicate Animation" onAction="#onDuplicateAnimation"/>
+                    <MenuItem text="Delete Animation" onAction="#onDeleteAnimation"/>
+                </Menu>
+                
+                <Menu text="_View">
+                    <CheckMenuItem fx:id="showBonesMenuItem" text="Show _Bones" selected="true" onAction="#onToggleShowBones"/>
+                    <CheckMenuItem fx:id="showGridMenuItem" text="Show _Grid" selected="true" onAction="#onToggleShowGrid"/>
+                    <CheckMenuItem fx:id="showAttachmentsMenuItem" text="Show _Attachments" selected="true" onAction="#onToggleShowAttachments"/>
+                    <SeparatorMenuItem/>
+                    <CheckMenuItem fx:id="onionSkinningMenuItem" text="_Onion Skinning" onAction="#onToggleOnionSkinning"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_Reset View" onAction="#onResetView"/>
+                    <MenuItem text="_Zoom to Fit" onAction="#onZoomToFit"/>
+                    <SeparatorMenuItem/>
+                    <CheckMenuItem fx:id="showLogPanelMenuItem" text="Show _Log Panel" onAction="#onToggleLogPanel"/>
+                </Menu>
+                
+                <Menu text="_Help">
+                    <MenuItem text="_Documentation" onAction="#onDocumentation"/>
+                    <MenuItem text="_Keyboard Shortcuts" onAction="#onKeyboardShortcuts"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="_About" onAction="#onAbout"/>
+                </Menu>
+            </MenuBar>
+            
+            <!-- Tool Bar -->
+            <ToolBar fx:id="toolBar">
+                <Button text="New" onAction="#onNewProject"/>
+                <Button text="Open" onAction="#onOpen"/>
+                <Button text="Save" onAction="#onSave"/>
+                <Separator/>
+                <Button text="Undo" onAction="#onUndo"/>
+                <Button text="Redo" onAction="#onRedo"/>
+                <Separator/>
+                <ToggleButton fx:id="selectToolBtn" text="Select" selected="true" onAction="#onSelectTool">
+                    <toggleGroup>
+                        <ToggleGroup fx:id="toolGroup"/>
+                    </toggleGroup>
+                </ToggleButton>
+                <ToggleButton fx:id="moveToolBtn" text="Move" toggleGroup="$toolGroup" onAction="#onMoveTool"/>
+                <ToggleButton fx:id="rotateToolBtn" text="Rotate" toggleGroup="$toolGroup" onAction="#onRotateTool"/>
+                <ToggleButton fx:id="scaleToolBtn" text="Scale" toggleGroup="$toolGroup" onAction="#onScaleTool"/>
+                <Separator/>
+                <Button text="▶" onAction="#onPlay"/>
+                <Button text="■" onAction="#onStop"/>
+                <Separator/>
+                <Label text="Zoom:"/>
+                <Slider fx:id="zoomSlider" prefWidth="100" min="0.25" max="4.0" value="1.0"/>
+            </ToolBar>
+        </VBox>
+    </top>
+    
+    <!-- Main Content -->
+    <center>
+        <SplitPane fx:id="mainSplitPane" dividerPositions="0.75">
+            <!-- Left: Canvas, Timeline, and Log -->
+            <SplitPane fx:id="leftSplitPane" orientation="VERTICAL" dividerPositions="0.55, 0.85">
+                <!-- Canvas Area -->
+                <BorderPane fx:id="canvasContainer" styleClass="canvas-container">
+                    <!-- Canvas will be added programmatically -->
+                </BorderPane>
+                
+                <!-- Timeline -->
+                <BorderPane fx:id="timelineContainer" styleClass="timeline-container">
+                    <!-- Timeline will be added programmatically -->
+                </BorderPane>
+                
+                <!-- Log Panel -->
+                <BorderPane fx:id="logContainer" styleClass="log-container">
+                    <!-- LogPanel will be added programmatically -->
+                </BorderPane>
+            </SplitPane>
+            
+            <!-- Right: Hierarchy and Inspector -->
+            <SplitPane orientation="VERTICAL" dividerPositions="0.5">
+                <!-- Hierarchy -->
+                <VBox fx:id="hierarchyContainer" styleClass="panel">
+                    <Label text="Hierarchy" styleClass="panel-title"/>
+                    <!-- BoneTreeView will be added programmatically -->
+                </VBox>
+                
+                <!-- Inspector -->
+                <VBox fx:id="inspectorContainer" styleClass="panel">
+                    <!-- InspectorPane will be added programmatically -->
+                </VBox>
+            </SplitPane>
+        </SplitPane>
+    </center>
+    
+    <!-- Status Bar -->
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT">
+            <padding>
+                <Insets top="4" right="8" bottom="4" left="8"/>
+            </padding>
+            <Label fx:id="statusLabel" text="Ready"/>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Label text="AnimStudio v1.0"/>
+        </HBox>
+    </bottom>
+    
+</BorderPane>
