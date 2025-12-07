@@ -13,6 +13,7 @@ public class Slot {
     private Bone bone;
     private Attachment attachment;
     private int drawOrder;
+    private boolean visible;
     
     // Blend mode for rendering
     private BlendMode blendMode;
@@ -35,6 +36,7 @@ public class Slot {
         this.name = name;
         this.bone = bone;
         this.drawOrder = 0;
+        this.visible = true;
         this.blendMode = BlendMode.NORMAL;
         this.red = 1f;
         this.green = 1f;
@@ -57,6 +59,9 @@ public class Slot {
     
     public int getDrawOrder() { return drawOrder; }
     public void setDrawOrder(int drawOrder) { this.drawOrder = drawOrder; }
+    
+    public boolean isVisible() { return visible; }
+    public void setVisible(boolean visible) { this.visible = visible; }
     
     public BlendMode getBlendMode() { return blendMode; }
     public void setBlendMode(BlendMode blendMode) { this.blendMode = blendMode; }

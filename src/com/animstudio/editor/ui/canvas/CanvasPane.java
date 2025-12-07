@@ -52,6 +52,17 @@ public class CanvasPane extends Pane {
     private boolean onionSkinning = false;
     private boolean showIKConstraints = true;
     
+    // Grid snapping
+    private boolean snapToGrid = false;
+    private double gridSnapSize = 10.0;
+    
+    // Smooth zoom animation
+    private double targetZoom = 1.0;
+    private double targetViewX = 0;
+    private double targetViewY = 0;
+    private boolean animatingView = false;
+    private javafx.animation.AnimationTimer zoomAnimator;
+    
     // Image cache for attachments
     private final Map<String, Image> imageCache = new HashMap<>();
     
@@ -110,7 +121,13 @@ public class CanvasPane extends Pane {
         Skeleton skeleton = EditorContext.getInstance().getCurrentSkeleton();
         if (skeleton != null && showBones) {
             // Draw onion skins first (behind current frame)
-            if (onionSkinning) {
+            // Check both local setting and timeline setting
+            boolean showOnionSkin = onionSkinning;
+            var mainController = EditorContext.getInstance().getMainController();
+            if (mainController != null && mainController.getTimelinePane() != null) {
+                showOnionSkin = showOnionSkin || mainController.getTimelinePane().isOnionSkinningEnabled();
+            }
+            if (showOnionSkin) {
                 drawOnionSkins(skeleton);
             }
             
@@ -133,6 +150,15 @@ public class CanvasPane extends Pane {
         AnimationClip clip = EditorContext.getInstance().getCurrentAnimation();
         if (clip == null) return;
         
+        // Get onion skinning settings from timeline
+        var mainController = EditorContext.getInstance().getMainController();
+        int framesBefore = 3;
+        int framesAfter = 2;
+        if (mainController != null && mainController.getTimelinePane() != null) {
+            framesBefore = mainController.getTimelinePane().getOnionFramesBefore();
+            framesAfter = mainController.getTimelinePane().getOnionFramesAfter();
+        }
+        
         double currentTime = EditorContext.getInstance().getCurrentTime();
         double frameTime = TimeUtils.framesToSeconds(1); // Duration of one frame in seconds
         
@@ -146,33 +172,28 @@ public class CanvasPane extends Pane {
         }
         
         // Draw previous frames (blue tint)
-        // Offsets are in frames, convert to seconds for time calculations
-        int[] previousFrameOffsets = {-3, -2, -1};
-        double[] previousAlphas = {0.1, 0.15, 0.25};
         Color previousColor = Color.rgb(100, 150, 255);
-        
-        for (int i = 0; i < previousFrameOffsets.length; i++) {
-            double time = currentTime + (previousFrameOffsets[i] * frameTime);
+        for (int i = framesBefore; i >= 1; i--) {
+            double time = currentTime - (i * frameTime);
+            double alpha = 0.1 + (0.2 * (framesBefore - i + 1) / framesBefore);
             if (time >= 0 && time < clip.getDuration()) {
                 skeleton.resetToSetupPose();
                 clip.apply(skeleton, time);
                 skeleton.updateWorldTransforms();
-                drawOnionSkinFrame(skeleton, previousColor, previousAlphas[i]);
+                drawOnionSkinFrame(skeleton, previousColor, alpha);
             }
         }
         
         // Draw next frames (red/orange tint)
-        int[] nextFrameOffsets = {1, 2, 3};
-        double[] nextAlphas = {0.25, 0.15, 0.1};
         Color nextColor = Color.rgb(255, 150, 100);
-        
-        for (int i = 0; i < nextFrameOffsets.length; i++) {
-            double time = currentTime + (nextFrameOffsets[i] * frameTime);
+        for (int i = 1; i <= framesAfter; i++) {
+            double time = currentTime + (i * frameTime);
+            double alpha = 0.1 + (0.2 * (framesAfter - i + 1) / framesAfter);
             if (time >= 0 && time < clip.getDuration()) {
                 skeleton.resetToSetupPose();
                 clip.apply(skeleton, time);
                 skeleton.updateWorldTransforms();
-                drawOnionSkinFrame(skeleton, nextColor, nextAlphas[i]);
+                drawOnionSkinFrame(skeleton, nextColor, alpha);
             }
         }
         
@@ -271,6 +292,7 @@ public class CanvasPane extends Pane {
         sortedSlots.sort((a, b) -> Integer.compare(a.getDrawOrder(), b.getDrawOrder()));
         
         for (Slot slot : sortedSlots) {
+            if (!slot.isVisible()) continue;
             if (slot.getAttachment() == null) continue;
             if (!(slot.getAttachment() instanceof RegionAttachment)) continue;
             
@@ -537,6 +559,10 @@ public class CanvasPane extends Pane {
         double dy = e.getY() - dragStartY;
         
         switch (dragMode) {
+            case NONE:
+                // No action needed
+                break;
+                
             case PAN:
                 viewX += dx;
                 viewY += dy;
@@ -562,8 +588,17 @@ public class CanvasPane extends Pane {
                         worldDy = localDy;
                     }
                     
-                    draggingBone.setX(boneStartX + worldDx);
-                    draggingBone.setY(boneStartY + worldDy);
+                    double newX = boneStartX + worldDx;
+                    double newY = boneStartY + worldDy;
+                    
+                    // Apply grid snapping if Ctrl is held
+                    if (snapToGrid || e.isControlDown()) {
+                        newX = snapToGridValue(newX);
+                        newY = snapToGridValue(newY);
+                    }
+                    
+                    draggingBone.setX(newX);
+                    draggingBone.setY(newY);
                     EditorContext.getInstance().getCurrentSkeleton().updateWorldTransforms();
                     repaint();
                 }
@@ -741,5 +776,100 @@ public class CanvasPane extends Pane {
         this.viewY = canvasHeight / 2 - centerY * zoom;
         
         repaint();
+    }
+    
+    // === Grid Snapping ===
+    
+    /**
+     * Snap a value to the nearest grid position.
+     */
+    private double snapToGridValue(double value) {
+        return Math.round(value / gridSnapSize) * gridSnapSize;
+    }
+    
+    /**
+     * Enable or disable grid snapping.
+     */
+    public void setSnapToGrid(boolean snap) {
+        this.snapToGrid = snap;
+    }
+    
+    public boolean isSnapToGrid() {
+        return snapToGrid;
+    }
+    
+    /**
+     * Set the grid snap size in world units.
+     */
+    public void setGridSnapSize(double size) {
+        this.gridSnapSize = Math.max(1, size);
+    }
+    
+    public double getGridSnapSize() {
+        return gridSnapSize;
+    }
+    
+    // === Smooth Zoom Animation ===
+    
+    /**
+     * Smoothly zoom to a target zoom level centered on screen center.
+     */
+    public void smoothZoomTo(double targetZoom) {
+        smoothZoomTo(targetZoom, getWidth() / 2, getHeight() / 2);
+    }
+    
+    /**
+     * Smoothly zoom to a target zoom level centered on a screen position.
+     */
+    public void smoothZoomTo(double newTargetZoom, double centerX, double centerY) {
+        this.targetZoom = Math.max(0.1, Math.min(5.0, newTargetZoom));
+        this.targetViewX = centerX - (centerX - viewX) * (this.targetZoom / zoom);
+        this.targetViewY = centerY - (centerY - viewY) * (this.targetZoom / zoom);
+        
+        if (zoomAnimator != null) {
+            zoomAnimator.stop();
+        }
+        
+        animatingView = true;
+        zoomAnimator = new javafx.animation.AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                // Lerp toward target
+                double lerpFactor = 0.15;
+                zoom += (targetZoom - zoom) * lerpFactor;
+                viewX += (targetViewX - viewX) * lerpFactor;
+                viewY += (targetViewY - viewY) * lerpFactor;
+                
+                // Check if close enough to target
+                boolean zoomDone = Math.abs(targetZoom - zoom) < 0.001;
+                boolean viewXDone = Math.abs(targetViewX - viewX) < 0.5;
+                boolean viewYDone = Math.abs(targetViewY - viewY) < 0.5;
+                
+                if (zoomDone && viewXDone && viewYDone) {
+                    zoom = targetZoom;
+                    viewX = targetViewX;
+                    viewY = targetViewY;
+                    animatingView = false;
+                    stop();
+                }
+                
+                repaint();
+            }
+        };
+        zoomAnimator.start();
+    }
+    
+    /**
+     * Stop any running zoom animation.
+     */
+    public void stopZoomAnimation() {
+        if (zoomAnimator != null) {
+            zoomAnimator.stop();
+            animatingView = false;
+        }
+    }
+    
+    public boolean isAnimatingView() {
+        return animatingView;
     }
 }

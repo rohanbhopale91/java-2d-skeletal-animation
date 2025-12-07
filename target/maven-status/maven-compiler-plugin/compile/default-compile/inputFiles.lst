@@ -13,6 +13,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\edi
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\DeleteIKConstraintCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\ConsoleLogAppender.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\LogAppender.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\ik\IKEditorPane.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\RenameBoneCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\enums\Direction.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\JsonLogFormatter.java
@@ -65,6 +66,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\io\
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\diagnostics\JavaRuntimeHealthCheck.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\diagnostics\MemoryHealthCheck.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\LogManager.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\mesh\MeshEditorPane.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\tools\CreateBoneTool.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\DeleteKeyframeCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\util\TimeUtils.java
@@ -75,6 +77,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\log
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\TextLogFormatter.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\automation\rules\BlinkRule.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\help\HelpSystem.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\timeline\CurveEditorPane.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\animation\KeyframeTrack.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\RenameClipCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\RotateBoneCommand.java
@@ -121,6 +124,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\edi
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\io\AnimationFormat.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\entity\Player.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\util\FrameCache.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\PasteKeyframesCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\hierarchy\BoneTreeView.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\entity\Poring.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\automation\rules\WalkCycleRule.java
@@ -136,6 +140,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\log
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\performance\PerfTimer.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\io\export\SpineExporter.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\help\KeyboardShortcuts.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\inspector\AttachmentInspectorPane.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\diagnostics\DiagnosticIssue.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\automation\script\ScriptParser.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\UILogAppender.java
@@ -148,6 +153,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\maps\Level.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\mesh\DeformableMesh.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\preferences\EditorPreferences.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\ModifyKeyframeCommand.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\DeleteKeyframesCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\diagnostics\DiagnosticsManager.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\tools\MeshTool.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\clips\AnimationClipsPane.java
@@ -155,6 +161,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\cor
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\tools\SelectTool.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\tools\SelectionTool.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\event\events\AnimationChangedEvent.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\ui\automation\RulesEditorPane.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\MoveBoneCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\tools\BoneTool.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\DeleteClipCommand.java
@@ -165,6 +172,7 @@ D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\cor
 D:\new_java_animation_software\java-2d-skeletal-animation\src\anim\SkeletonAnimation.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\ik\IKConstraint.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\help\HelpDialog.java
+D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\editor\commands\MoveKeyframesCommand.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\util\TaskExecutor.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\core\model\RegionAttachment.java
 D:\new_java_animation_software\java-2d-skeletal-animation\src\com\animstudio\logging\LogLevel.java

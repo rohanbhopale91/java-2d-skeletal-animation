@@ -1,5 +1,8 @@
 package com.animstudio.core.model;
 
+import com.animstudio.core.ik.IKManager;
+import com.animstudio.core.mesh.DeformableMesh;
+
 import java.util.*;
 
 /**
@@ -15,6 +18,10 @@ public class Skeleton {
     private final List<Slot> slots;
     private final Map<String, Slot> slotsByName;
     
+    // IK and mesh support
+    private IKManager ikManager;
+    private final List<DeformableMesh> meshes;
+    
     // Skeleton dimensions for editor
     private double width;
     private double height;
@@ -26,6 +33,8 @@ public class Skeleton {
         this.bonesById = new HashMap<>();
         this.slots = new ArrayList<>();
         this.slotsByName = new HashMap<>();
+        this.meshes = new ArrayList<>();
+        this.ikManager = new IKManager(this);
         this.width = 200;
         this.height = 200;
     }
@@ -160,6 +169,21 @@ public class Skeleton {
     }
     
     /**
+     * Find a slot attached to the given bone.
+     * @param bone The bone to search for
+     * @return The first slot attached to the bone, or null if none found
+     */
+    public Slot findSlotForBone(Bone bone) {
+        if (bone == null) return null;
+        for (Slot slot : slots) {
+            if (slot.getBone() == bone) {
+                return slot;
+            }
+        }
+        return null;
+    }
+    
+    /**
      * Get all slots.
      */
     public List<Slot> getSlots() {
@@ -286,6 +310,62 @@ public class Skeleton {
     
     public double getHeight() { return height; }
     public void setHeight(double height) { this.height = height; }
+    
+    // === IK Manager ===
+    
+    /**
+     * Get the IK manager for this skeleton.
+     */
+    public IKManager getIKManager() { return ikManager; }
+    
+    /**
+     * Set the IK manager for this skeleton.
+     */
+    public void setIKManager(IKManager manager) { this.ikManager = manager; }
+    
+    // === Deformable Meshes ===
+    
+    /**
+     * Get all deformable meshes attached to this skeleton.
+     */
+    public List<DeformableMesh> getMeshes() { 
+        return Collections.unmodifiableList(meshes); 
+    }
+    
+    /**
+     * Add a deformable mesh to this skeleton.
+     */
+    public void addMesh(DeformableMesh mesh) {
+        if (mesh != null && !meshes.contains(mesh)) {
+            meshes.add(mesh);
+        }
+    }
+    
+    /**
+     * Remove a deformable mesh from this skeleton.
+     */
+    public void removeMesh(DeformableMesh mesh) {
+        meshes.remove(mesh);
+    }
+    
+    /**
+     * Get a mesh by name.
+     */
+    public DeformableMesh getMesh(String name) {
+        for (DeformableMesh mesh : meshes) {
+            if (mesh.getName().equals(name)) {
+                return mesh;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Find a bone by name (alias for getBone for compatibility).
+     */
+    public Bone findBone(String name) {
+        return bonesByName.get(name);
+    }
     
     @Override
     public String toString() {

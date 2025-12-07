@@ -36,8 +36,20 @@ public class BlinkRule extends AbstractRule {
         this.maxInterval = Math.max(minInterval, max);
     }
     
+    public void setBlinkInterval(double interval) {
+        setBlinkInterval(interval * 0.7, interval * 1.3);
+    }
+    
+    public double getBlinkInterval() {
+        return (minInterval + maxInterval) / 2.0;
+    }
+    
     public void setBlinkDuration(double duration) {
         this.blinkDuration = Math.max(0.05, Math.min(0.5, duration));
+    }
+    
+    public double getBlinkDuration() {
+        return blinkDuration;
     }
     
     private void scheduleNextBlink(double currentTime) {

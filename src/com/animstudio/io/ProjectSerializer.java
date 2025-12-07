@@ -4,6 +4,11 @@ import com.animstudio.core.animation.AnimationClip;
 import com.animstudio.core.animation.BoneKeyframe;
 import com.animstudio.core.animation.Keyframe;
 import com.animstudio.core.animation.KeyframeTrack;
+import com.animstudio.core.ik.IKConstraint;
+import com.animstudio.core.ik.IKManager;
+import com.animstudio.core.mesh.DeformableMesh;
+import com.animstudio.core.mesh.MeshTriangle;
+import com.animstudio.core.mesh.MeshVertex;
 import com.animstudio.core.model.Bone;
 import com.animstudio.core.model.Skeleton;
 import com.animstudio.editor.project.AnimationProject;
@@ -111,6 +116,101 @@ public class ProjectSerializer {
         }
         obj.add("bones", bones);
         
+        // Serialize IK constraints
+        IKManager ikManager = skeleton.getIKManager();
+        if (ikManager != null && !ikManager.getConstraints().isEmpty()) {
+            JsonArray ikConstraints = new JsonArray();
+            for (IKConstraint constraint : ikManager.getConstraints()) {
+                ikConstraints.add(serializeIKConstraint(constraint));
+            }
+            obj.add("ikConstraints", ikConstraints);
+        }
+        
+        // Serialize meshes
+        List<DeformableMesh> meshes = skeleton.getMeshes();
+        if (meshes != null && !meshes.isEmpty()) {
+            JsonArray meshArray = new JsonArray();
+            for (DeformableMesh mesh : meshes) {
+                meshArray.add(serializeMesh(mesh));
+            }
+            obj.add("meshes", meshArray);
+        }
+        
+        return obj;
+    }
+    
+    private JsonObject serializeIKConstraint(IKConstraint constraint) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("name", constraint.getName());
+        obj.addProperty("mix", constraint.getMix());
+        obj.addProperty("bendPositive", constraint.isBendPositive());
+        obj.addProperty("stretch", constraint.isStretch());
+        obj.addProperty("compress", constraint.isCompress());
+        obj.addProperty("softness", constraint.getSoftness());
+        obj.addProperty("maxIterations", constraint.getMaxIterations());
+        
+        // Bone chain
+        JsonArray boneNames = new JsonArray();
+        for (Bone bone : constraint.getBones()) {
+            boneNames.add(bone.getName());
+        }
+        obj.add("bones", boneNames);
+        
+        // Target
+        if (constraint.getTarget() != null) {
+            obj.addProperty("target", constraint.getTarget().getName());
+        }
+        
+        return obj;
+    }
+    
+    private JsonObject serializeMesh(DeformableMesh mesh) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("name", mesh.getName());
+        
+        if (mesh.getTexturePath() != null) {
+            obj.addProperty("texturePath", mesh.getTexturePath());
+        }
+        obj.addProperty("textureWidth", mesh.getTextureWidth());
+        obj.addProperty("textureHeight", mesh.getTextureHeight());
+        
+        // Vertices
+        JsonArray vertices = new JsonArray();
+        for (MeshVertex v : mesh.getVertices()) {
+            JsonObject vObj = new JsonObject();
+            vObj.addProperty("x", v.x);
+            vObj.addProperty("y", v.y);
+            vObj.addProperty("u", v.u);
+            vObj.addProperty("v", v.v);
+            
+            // Bone weights
+            if (v.getWeightCount() > 0) {
+                JsonArray weights = new JsonArray();
+                int[] boneIndices = v.getBoneIndices();
+                float[] boneWeights = v.getBoneWeights();
+                for (int i = 0; i < v.getWeightCount(); i++) {
+                    JsonObject wObj = new JsonObject();
+                    wObj.addProperty("bone", boneIndices[i]);
+                    wObj.addProperty("weight", boneWeights[i]);
+                    weights.add(wObj);
+                }
+                vObj.add("weights", weights);
+            }
+            vertices.add(vObj);
+        }
+        obj.add("vertices", vertices);
+        
+        // Triangles
+        JsonArray triangles = new JsonArray();
+        for (MeshTriangle t : mesh.getTriangles()) {
+            JsonArray tri = new JsonArray();
+            tri.add(t.v1);
+            tri.add(t.v2);
+            tri.add(t.v3);
+            triangles.add(tri);
+        }
+        obj.add("triangles", triangles);
+        
         return obj;
     }
     
@@ -171,7 +271,119 @@ public class ProjectSerializer {
         }
         
         skeleton.updateWorldTransforms();
+        
+        // Load IK constraints (after bones are set up)
+        if (obj.has("ikConstraints")) {
+            JsonArray ikConstraints = obj.getAsJsonArray("ikConstraints");
+            for (JsonElement elem : ikConstraints) {
+                IKConstraint constraint = deserializeIKConstraint(elem.getAsJsonObject(), skeleton);
+                if (constraint != null) {
+                    skeleton.getIKManager().addConstraint(constraint);
+                }
+            }
+        }
+        
+        // Load meshes
+        if (obj.has("meshes")) {
+            JsonArray meshes = obj.getAsJsonArray("meshes");
+            for (JsonElement elem : meshes) {
+                DeformableMesh mesh = deserializeMesh(elem.getAsJsonObject());
+                if (mesh != null) {
+                    mesh.setSkeleton(skeleton);
+                    skeleton.addMesh(mesh);
+                }
+            }
+        }
+        
         return skeleton;
+    }
+    
+    private IKConstraint deserializeIKConstraint(JsonObject obj, Skeleton skeleton) {
+        String constraintName = obj.has("name") ? obj.get("name").getAsString() : "IK Constraint";
+        IKConstraint constraint = new IKConstraint(constraintName);
+        
+        if (obj.has("mix")) constraint.setMix((float) obj.get("mix").getAsDouble());
+        if (obj.has("bendPositive")) constraint.setBendPositive(obj.get("bendPositive").getAsBoolean());
+        if (obj.has("stretch")) constraint.setStretch(obj.get("stretch").getAsBoolean());
+        if (obj.has("compress")) constraint.setCompress(obj.get("compress").getAsBoolean());
+        if (obj.has("softness")) constraint.setSoftness((float) obj.get("softness").getAsDouble());
+        if (obj.has("maxIterations")) constraint.setMaxIterations(obj.get("maxIterations").getAsInt());
+        
+        // Load bone chain
+        if (obj.has("bones")) {
+            JsonArray boneNames = obj.getAsJsonArray("bones");
+            for (JsonElement elem : boneNames) {
+                Bone bone = skeleton.getBone(elem.getAsString());
+                if (bone != null) {
+                    constraint.addBone(bone);
+                }
+            }
+        }
+        
+        // Load target
+        if (obj.has("target")) {
+            Bone target = skeleton.getBone(obj.get("target").getAsString());
+            if (target != null) {
+                constraint.setTarget(target);
+            }
+        }
+        
+        return constraint;
+    }
+    
+    private DeformableMesh deserializeMesh(JsonObject obj) {
+        String meshName = obj.has("name") ? obj.get("name").getAsString() : "Mesh";
+        DeformableMesh mesh = new DeformableMesh(meshName);
+        
+        if (obj.has("texturePath")) {
+            mesh.setTexturePath(obj.get("texturePath").getAsString());
+        }
+        if (obj.has("textureWidth")) {
+            mesh.setTextureWidth(obj.get("textureWidth").getAsInt());
+        }
+        if (obj.has("textureHeight")) {
+            mesh.setTextureHeight(obj.get("textureHeight").getAsInt());
+        }
+        
+        // Load vertices
+        if (obj.has("vertices")) {
+            JsonArray vertices = obj.getAsJsonArray("vertices");
+            for (JsonElement elem : vertices) {
+                JsonObject vObj = elem.getAsJsonObject();
+                float x = vObj.get("x").getAsFloat();
+                float y = vObj.get("y").getAsFloat();
+                float u = vObj.has("u") ? vObj.get("u").getAsFloat() : 0;
+                float v = vObj.has("v") ? vObj.get("v").getAsFloat() : 0;
+                
+                if (vObj.has("weights")) {
+                    JsonArray weights = vObj.getAsJsonArray("weights");
+                    int[] boneIndices = new int[weights.size()];
+                    float[] boneWeights = new float[weights.size()];
+                    for (int i = 0; i < weights.size(); i++) {
+                        JsonObject wObj = weights.get(i).getAsJsonObject();
+                        boneIndices[i] = wObj.get("bone").getAsInt();
+                        boneWeights[i] = wObj.get("weight").getAsFloat();
+                    }
+                    mesh.addVertex(x, y, u, v, boneIndices, boneWeights);
+                } else {
+                    mesh.addVertex(x, y, u, v);
+                }
+            }
+        }
+        
+        // Load triangles
+        if (obj.has("triangles")) {
+            JsonArray triangles = obj.getAsJsonArray("triangles");
+            for (JsonElement elem : triangles) {
+                JsonArray tri = elem.getAsJsonArray();
+                int v1 = tri.get(0).getAsInt();
+                int v2 = tri.get(1).getAsInt();
+                int v3 = tri.get(2).getAsInt();
+                mesh.addTriangle(v1, v2, v3);
+            }
+        }
+        
+        return mesh;
     }
     
     private JsonObject serializeAnimation(AnimationClip clip) {

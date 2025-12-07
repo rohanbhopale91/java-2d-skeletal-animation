@@ -293,4 +293,112 @@ public class DeformableMesh {
     
     public float getWidth() { return maxX - minX; }
     public float getHeight() { return maxY - minY; }
+    
+    // === Additional methods for editor support ===
+    
+    /**
+     * Create a deep copy of this mesh.
+     */
+    public DeformableMesh duplicate() {
+        DeformableMesh copy = new DeformableMesh(this.name + "_copy");
+        copy.skeleton = this.skeleton;
+        copy.texturePath = this.texturePath;
+        copy.textureWidth = this.textureWidth;
+        copy.textureHeight = this.textureHeight;
+        copy.minX = this.minX;
+        copy.minY = this.minY;
+        copy.maxX = this.maxX;
+        copy.maxY = this.maxY;
+        
+        // Copy vertices
+        for (MeshVertex v : this.vertices) {
+            copy.vertices.add(v.copy());
+        }
+        
+        // Copy triangles
+        for (MeshTriangle t : this.triangles) {
+            copy.triangles.add(new MeshTriangle(t.v1, t.v2, t.v3));
+        }
+        
+        return copy;
+    }
+    
+    /**
+     * Normalize all vertex weights so they sum to 1.0.
+     */
+    public void normalizeWeights() {
+        for (MeshVertex vertex : vertices) {
+            vertex.normalizeWeights();
+        }
+    }
+    
+    /**
+     * Auto-generate weights for all vertices based on bone proximity.
+     * This is a convenience method that calls autoSkin with a reasonable default distance.
+     */
+    public void autoGenerateWeights(Skeleton skeleton) {
+        // Calculate a reasonable max distance based on mesh size
+        float meshSize = Math.max(getWidth(), getHeight());
+        float maxDistance = meshSize > 0 ? meshSize : 200.0f;
+        autoSkin(skeleton, maxDistance);
+    }
+    
+    /**
+     * Remove a vertex by index.
+     */
+    public void removeVertex(int index) {
+        if (index < 0 || index >= vertices.size()) return;
+        
+        vertices.remove(index);
+        
+        // Rebuild triangles, excluding those that referenced the removed vertex
+        // and adjusting indices for vertices after the removed one
+        List<MeshTriangle> newTriangles = new ArrayList<>();
+        for (MeshTriangle tri : triangles) {
+            if (tri.v1 == index || tri.v2 == index || tri.v3 == index) {
+                // Skip triangles that reference the removed vertex
+                continue;
+            }
+            // Adjust indices for vertices after the removed one
+            int newV1 = tri.v1 > index ? tri.v1 - 1 : tri.v1;
+            int newV2 = tri.v2 > index ? tri.v2 - 1 : tri.v2;
+            int newV3 = tri.v3 > index ? tri.v3 - 1 : tri.v3;
+            newTriangles.add(new MeshTriangle(newV1, newV2, newV3));
+        }
+        triangles.clear();
+        triangles.addAll(newTriangles);
+        
+        recalculateBounds();
+    }
+    
+    /**
+     * Remove a triangle by index.
+     */
+    public void removeTriangle(int index) {
+        if (index >= 0 && index < triangles.size()) {
+            triangles.remove(index);
+        }
+    }
+    
+    /**
+     * Recalculate the bounding box from all vertices.
+     */
+    public void recalculateBounds() {
+        if (vertices.isEmpty()) {
+            minX = minY = maxX = maxY = 0;
+            return;
+        }
+        
+        minX = Float.MAX_VALUE;
+        minY = Float.MAX_VALUE;
+        maxX = Float.MIN_VALUE;
+        maxY = Float.MIN_VALUE;
+        
+        for (MeshVertex v : vertices) {
+            minX = Math.min(minX, v.x);
+            minY = Math.min(minY, v.y);
+            maxX = Math.max(maxX, v.x);
+            maxY = Math.max(maxY, v.y);
+        }
+    }
 }

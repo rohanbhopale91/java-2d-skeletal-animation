@@ -18,8 +18,11 @@ import com.animstudio.editor.ui.dialogs.RecoveryDialog;
 import com.animstudio.editor.ui.dialogs.RecentFilesDialog;
 import com.animstudio.editor.ui.export.ExportDialog;
 import com.animstudio.editor.ui.hierarchy.BoneTreeView;
+import com.animstudio.editor.ui.ik.IKEditorPane;
 import com.animstudio.editor.ui.inspector.InspectorPane;
+import com.animstudio.editor.ui.automation.RulesEditorPane;
 import com.animstudio.editor.ui.log.LogPanel;
+import com.animstudio.editor.ui.mesh.MeshEditorPane;
 import com.animstudio.editor.ui.timeline.TimelinePane;
 import com.animstudio.io.AutosaveManager;
 import com.animstudio.io.ProjectFileWatcher;
@@ -32,6 +35,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -78,6 +82,10 @@ public class MainWindowController implements Initializable {
     private CanvasPane canvasPane;
     private BoneTreeView boneTreeView;
     private InspectorPane inspectorPane;
+    private IKEditorPane ikEditorPane;
+    private MeshEditorPane meshEditorPane;
+    private RulesEditorPane rulesEditorPane;
+    private TabPane inspectorTabPane;
     private TimelinePane timelinePane;
     private LogPanel logPanel;
     
@@ -332,8 +340,41 @@ public class MainWindowController implements Initializable {
     }
     
     private void setupInspectorPane() {
+        // Create the individual panes
         inspectorPane = new InspectorPane();
-        inspectorContainer.getChildren().add(inspectorPane);
+        ikEditorPane = new IKEditorPane();
+        meshEditorPane = new MeshEditorPane();
+        rulesEditorPane = new RulesEditorPane();
+        
+        // Create a TabPane to hold all property editors
+        inspectorTabPane = new TabPane();
+        inspectorTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        
+        // Create tabs
+        Tab inspectorTab = new Tab("Inspector");
+        inspectorTab.setContent(new ScrollPane(inspectorPane));
+        
+        Tab ikTab = new Tab("IK");
+        ikTab.setContent(new ScrollPane(ikEditorPane));
+        
+        Tab meshTab = new Tab("Mesh");
+        meshTab.setContent(new ScrollPane(meshEditorPane));
+        
+        Tab rulesTab = new Tab("Rules");
+        rulesTab.setContent(new ScrollPane(rulesEditorPane));
+        
+        inspectorTabPane.getTabs().addAll(inspectorTab, ikTab, meshTab, rulesTab);
+        
+        // Configure scroll panes
+        for (Tab tab : inspectorTabPane.getTabs()) {
+            if (tab.getContent() instanceof ScrollPane sp) {
+                sp.setFitToWidth(true);
+            }
+        }
+        
+        // Add TabPane to the inspector container
+        inspectorContainer.getChildren().add(inspectorTabPane);
+        VBox.setVgrow(inspectorTabPane, Priority.ALWAYS);
     }
     
     private void setupTimelinePane() {
@@ -380,7 +421,11 @@ public class MainWindowController implements Initializable {
         // Skeleton loaded
         eventBus.subscribe(SkeletonChangedEvent.class, event -> {
             Platform.runLater(() -> {
-                boneTreeView.setSkeleton(event.getSkeleton());
+                Skeleton skeleton = event.getSkeleton();
+                boneTreeView.setSkeleton(skeleton);
+                ikEditorPane.setSkeleton(skeleton);
+                meshEditorPane.setSkeleton(skeleton);
+                rulesEditorPane.setSkeleton(skeleton);
                 canvasPane.repaint();
             });
         });

@@ -113,6 +113,25 @@ public class MeshVertex {
     public int[] getBoneIndices() { return boneIndices; }
     public float[] getBoneWeights() { return boneWeights; }
     
+    // Additional accessor methods for editor compatibility
+    public float getX() { return x; }
+    public float getY() { return y; }
+    public void setX(float x) { this.x = x; }
+    public void setY(float y) { this.y = y; }
+    
+    /**
+     * Get a formatted string of weights for display.
+     */
+    public String getWeights() {
+        if (weightCount == 0) return "None";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < weightCount; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(String.format("B%d:%.2f", boneIndices[i], boneWeights[i]));
+        }
+        return sb.toString();
+    }
+    
     /**
      * Copy this vertex.
      */

@@ -7,6 +7,9 @@ import com.animstudio.core.model.Bone;
 import com.animstudio.core.util.TimeUtils;
 import com.animstudio.editor.EditorContext;
 import com.animstudio.editor.commands.AddKeyframeCommand;
+import com.animstudio.editor.commands.DeleteKeyframesCommand;
+import com.animstudio.editor.commands.MoveKeyframesCommand;
+import com.animstudio.editor.commands.PasteKeyframesCommand;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -21,8 +24,12 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Timeline panel for animation editing.
@@ -76,6 +83,55 @@ public class TimelinePane extends BorderPane {
     private boolean snapToFrame = true;
     private boolean isDraggingPlayhead = false;
     
+    // Multi-selection support
+    private final Set<SelectedKeyframe> selectedKeyframes = new HashSet<>();
+    private boolean isDraggingKeyframes = false;
+    private double dragStartFrame = 0;
+    
+    // Box selection support
+    private boolean isBoxSelecting = false;
+    private double boxStartX, boxStartY;
+    private double boxEndX, boxEndY;
+    
+    // Clipboard for copy/paste
+    private final List<PasteKeyframesCommand.CopiedKeyframe> clipboard = new ArrayList<>();
+    private double clipboardReferenceTime = 0;
+    
+    // Onion skinning
+    private boolean onionSkinningEnabled = false;
+    private int onionFramesBefore = 3;
+    private int onionFramesAfter = 2;
+    
+    // Drag start point for keyframe dragging
+    private double dragStartX = 0;
+    private double dragStartY = 0;
+    
+    /**
+     * Represents a selected keyframe (track + time).
+     */
+    public static class SelectedKeyframe {
+        public final KeyframeTrack<?> track;
+        public final double time;
+        
+        public SelectedKeyframe(KeyframeTrack<?> track, double time) {
+            this.track = track;
+            this.time = time;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (!(obj instanceof SelectedKeyframe)) return false;
+            SelectedKeyframe other = (SelectedKeyframe) obj;
+            return track == other.track && Math.abs(time - other.time) < 0.001;
+        }
+        
+        @Override
+        public int hashCode() {
+            return track.hashCode() * 31 + (int)(time * 1000);
+        }
+    }
+    
     // Track to row mapping
     private final Map<KeyframeTrack<?>, Integer> trackRows = new HashMap<>();
     
@@ -105,9 +161,9 @@ public class TimelinePane extends BorderPane {
         
         // Keyframe canvas
         keyframeCanvas = new Canvas();
-        keyframeCanvas.setOnMousePressed(this::onKeyframeCanvasClick);
+        keyframeCanvas.setOnMousePressed(this::onKeyframeCanvasPressed);
         keyframeCanvas.setOnMouseDragged(this::onKeyframeCanvasDrag);
-        keyframeCanvas.setOnMouseReleased(e -> isDraggingPlayhead = false);
+        keyframeCanvas.setOnMouseReleased(this::onKeyframeCanvasReleased);
         keyframeCanvas.setOnScroll(this::onMouseScroll);
         
         ScrollPane keyframeScrollPane = new ScrollPane(keyframeCanvas);
@@ -160,6 +216,21 @@ public class TimelinePane extends BorderPane {
                 e.consume();
             } else if (e.getCode() == KeyCode.MINUS) {
                 zoomOut();
+                e.consume();
+            } else if (e.getCode() == KeyCode.DELETE || e.getCode() == KeyCode.BACK_SPACE) {
+                deleteSelectedKeyframes();
+                e.consume();
+            } else if (e.getCode() == KeyCode.C && e.isControlDown()) {
+                copySelectedKeyframes();
+                e.consume();
+            } else if (e.getCode() == KeyCode.V && e.isControlDown()) {
+                pasteKeyframes();
+                e.consume();
+            } else if (e.getCode() == KeyCode.A && e.isControlDown()) {
+                selectAllKeyframes();
+                e.consume();
+            } else if (e.getCode() == KeyCode.ESCAPE) {
+                clearKeyframeSelection();
                 e.consume();
             }
         });
@@ -216,6 +287,38 @@ public class TimelinePane extends BorderPane {
         snapToFrameCheckBox.setSelected(true);
         snapToFrameCheckBox.setTooltip(new Tooltip("Snap playhead to nearest frame"));
         snapToFrameCheckBox.selectedProperty().addListener((obs, old, val) -> snapToFrame = val);
+        
+        // Onion skinning controls
+        CheckBox onionCheckBox = new CheckBox("Onion");
+        onionCheckBox.setSelected(false);
+        onionCheckBox.setTooltip(new Tooltip("Show onion skinning (ghost frames)"));
+        onionCheckBox.selectedProperty().addListener((obs, old, val) -> {
+            onionSkinningEnabled = val;
+            EditorContext.getInstance().getMainController().getCanvasPane().repaint();
+        });
+        
+        Spinner<Integer> onionBeforeSpinner = new Spinner<>(0, 10, onionFramesBefore);
+        onionBeforeSpinner.setPrefWidth(55);
+        onionBeforeSpinner.setTooltip(new Tooltip("Frames shown before current"));
+        onionBeforeSpinner.valueProperty().addListener((obs, old, val) -> {
+            onionFramesBefore = val;
+            if (onionSkinningEnabled) {
+                EditorContext.getInstance().getMainController().getCanvasPane().repaint();
+            }
+        });
+        
+        Spinner<Integer> onionAfterSpinner = new Spinner<>(0, 10, onionFramesAfter);
+        onionAfterSpinner.setPrefWidth(55);
+        onionAfterSpinner.setTooltip(new Tooltip("Frames shown after current"));
+        onionAfterSpinner.valueProperty().addListener((obs, old, val) -> {
+            onionFramesAfter = val;
+            if (onionSkinningEnabled) {
+                EditorContext.getInstance().getMainController().getCanvasPane().repaint();
+            }
+        });
+        
+        Label onionLabel = new Label("←");
+        Label onionLabel2 = new Label("→");
         
         // Zoom controls
         Button zoomOutButton = new Button("−");
@@ -280,6 +383,8 @@ public class TimelinePane extends BorderPane {
             addKeyButton, removeKeyButton,
             new Separator(),
             snapToFrameCheckBox,
+            new Separator(),
+            onionCheckBox, onionLabel, onionBeforeSpinner, onionLabel2, onionAfterSpinner,
             new Separator(),
             zoomOutButton, zoomSlider, zoomInButton, zoomFitButton,
             new Separator(),
@@ -504,9 +609,9 @@ public class TimelinePane extends BorderPane {
                 // Draw keyframe diamonds
                 for (Keyframe<?> keyframe : keyframes) {
                     double kfX = keyframe.getTime() * FRAME_RATE * pixelsPerFrame - viewOffsetX;
-                    int kfFrame = (int) Math.round(keyframe.getTime() * FRAME_RATE);
                     
-                    boolean isSelected = track == selectedTrack && kfFrame == selectedKeyframeFrame;
+                    // Use multi-selection aware check
+                    boolean isSelected = isKeyframeSelected(track, keyframe.getTime());
                     
                     // Color based on interpolation type
                     Color fillColor;
@@ -556,10 +661,28 @@ public class TimelinePane extends BorderPane {
         gc.setLineWidth(2);
         gc.strokeLine(currentX, 0, currentX, h);
         gc.setLineWidth(1);
+        
+        // Draw box selection if active
+        if (isBoxSelecting) {
+            gc.setStroke(Color.rgb(100, 150, 255, 0.8));
+            gc.setFill(Color.rgb(100, 150, 255, 0.2));
+            double bx = Math.min(boxStartX, boxEndX);
+            double by = Math.min(boxStartY, boxEndY);
+            double bw = Math.abs(boxEndX - boxStartX);
+            double bh = Math.abs(boxEndY - boxStartY);
+            gc.fillRect(bx, by, bw, bh);
+            gc.strokeRect(bx, by, bw, bh);
+        }
     }
     
-    private void onKeyframeCanvasClick(MouseEvent e) {
+    private void onKeyframeCanvasPressed(MouseEvent e) {
         if (e.getButton() == MouseButton.PRIMARY) {
+            requestFocus(); // For keyboard shortcuts
+            
+            // Store drag start point
+            dragStartX = e.getX();
+            dragStartY = e.getY();
+            
             // Set current time
             double frame = (e.getX() + viewOffsetX) / pixelsPerFrame;
             double time = frame / FRAME_RATE;
@@ -576,8 +699,30 @@ public class TimelinePane extends BorderPane {
                         for (Keyframe<?> kf : track.getKeyframes()) {
                             int kfFrame = (int) Math.round(kf.getTime() * FRAME_RATE);
                             if (Math.abs(kfFrame - clickedFrame) <= 1) {
-                                selectedTrack = track;
-                                selectedKeyframeFrame = kfFrame;
+                                SelectedKeyframe clicked = new SelectedKeyframe(track, kf.getTime());
+                                
+                                if (e.isControlDown()) {
+                                    // Toggle selection
+                                    if (selectedKeyframes.contains(clicked)) {
+                                        selectedKeyframes.remove(clicked);
+                                    } else {
+                                        selectedKeyframes.add(clicked);
+                                    }
+                                } else if (e.isShiftDown()) {
+                                    // Add to selection
+                                    selectedKeyframes.add(clicked);
+                                } else {
+                                    // Check if clicking on already selected keyframe
+                                    if (!isKeyframeSelected(track, kf.getTime())) {
+                                        // Replace selection
+                                        selectedKeyframes.clear();
+                                        selectedTrack = track;
+                                        selectedKeyframeFrame = kfFrame;
+                                    }
+                                    // Start dragging
+                                    isDraggingKeyframes = true;
+                                    dragStartFrame = frame;
+                                }
                                 repaint();
                                 return;
                             }
@@ -586,17 +731,135 @@ public class TimelinePane extends BorderPane {
                 }
             }
             
-            selectedTrack = null;
-            selectedKeyframeFrame = -1;
+            // Clicked empty area - start box selection or clear selection
+            if (!e.isControlDown() && !e.isShiftDown()) {
+                selectedKeyframes.clear();
+                selectedTrack = null;
+                selectedKeyframeFrame = -1;
+            }
+            
+            // Start box selection
+            isBoxSelecting = true;
+            boxStartX = e.getX();
+            boxStartY = e.getY();
+            boxEndX = e.getX();
+            boxEndY = e.getY();
+            
             repaint();
         }
     }
     
     private void onKeyframeCanvasDrag(MouseEvent e) {
-        // Scrub timeline
-        double frame = (e.getX() + viewOffsetX) / pixelsPerFrame;
-        double time = frame / FRAME_RATE;
-        EditorContext.getInstance().setCurrentTime(Math.max(0, time));
+        if (isBoxSelecting) {
+            // Update box selection
+            boxEndX = e.getX();
+            boxEndY = e.getY();
+            repaint();
+        } else if (isDraggingKeyframes) {
+            // Preview drag (just update playhead for now)
+            double frame = (e.getX() + viewOffsetX) / pixelsPerFrame;
+            double time = frame / FRAME_RATE;
+            EditorContext.getInstance().setCurrentTime(Math.max(0, time));
+        } else {
+            // Scrub timeline
+            double frame = (e.getX() + viewOffsetX) / pixelsPerFrame;
+            double time = frame / FRAME_RATE;
+            EditorContext.getInstance().setCurrentTime(Math.max(0, time));
+        }
+    }
+    
+    private void onKeyframeCanvasReleased(MouseEvent e) {
+        if (isBoxSelecting) {
+            // Complete box selection
+            isBoxSelecting = false;
+            selectKeyframesInBox();
+            repaint();
+        } else if (isDraggingKeyframes) {
+            // Complete keyframe drag
+            isDraggingKeyframes = false;
+            double endFrame = (e.getX() + viewOffsetX) / pixelsPerFrame;
+            double frameDelta = endFrame - dragStartFrame;
+            
+            if (Math.abs(frameDelta) >= 0.5) {
+                // Move keyframes by frame delta (convert to seconds)
+                double timeDelta = frameDelta / FRAME_RATE;
+                moveSelectedKeyframes(timeDelta);
+            }
+        }
+        isDraggingPlayhead = false;
+    }
+    
+    /**
+     * Select all keyframes within the box selection area.
+     */
+    private void selectKeyframesInBox() {
+        if (currentClip == null) return;
+        
+        double minX = Math.min(boxStartX, boxEndX);
+        double maxX = Math.max(boxStartX, boxEndX);
+        double minY = Math.min(boxStartY, boxEndY);
+        double maxY = Math.max(boxStartY, boxEndY);
+        
+        for (Map.Entry<KeyframeTrack<?>, Integer> entry : trackRows.entrySet()) {
+            KeyframeTrack<?> track = entry.getKey();
+            int row = entry.getValue();
+            double trackY = row * TRACK_HEIGHT + TRACK_HEIGHT / 2.0;
+            
+            if (trackY >= minY && trackY <= maxY) {
+                for (Keyframe<?> kf : track.getKeyframes()) {
+                    double kfX = kf.getTime() * FRAME_RATE * pixelsPerFrame - viewOffsetX;
+                    if (kfX >= minX && kfX <= maxX) {
+                        selectedKeyframes.add(new SelectedKeyframe(track, kf.getTime()));
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Move selected keyframes by given time delta.
+     */
+    private void moveSelectedKeyframes(double timeDelta) {
+        if (currentClip == null) return;
+        
+        List<MoveKeyframesCommand.KeyframeMove> moves = new ArrayList<>();
+        
+        // Collect from multi-selection
+        for (SelectedKeyframe sk : selectedKeyframes) {
+            double newTime = Math.max(0, sk.time + timeDelta);
+            moves.add(new MoveKeyframesCommand.KeyframeMove(
+                sk.track.getTargetPath(), sk.time, newTime));
+        }
+        
+        // Also check single selection
+        if (moves.isEmpty() && selectedTrack != null && selectedKeyframeFrame >= 0) {
+            double time = selectedKeyframeFrame / (double) FRAME_RATE;
+            double newTime = Math.max(0, time + timeDelta);
+            moves.add(new MoveKeyframesCommand.KeyframeMove(
+                selectedTrack.getTargetPath(), time, newTime));
+        }
+        
+        if (!moves.isEmpty()) {
+            EditorContext.getInstance().getCommandStack().execute(
+                new MoveKeyframesCommand(currentClip, moves)
+            );
+            
+            // Update selection to new positions
+            Set<SelectedKeyframe> newSelection = new HashSet<>();
+            for (SelectedKeyframe sk : selectedKeyframes) {
+                newSelection.add(new SelectedKeyframe(sk.track, Math.max(0, sk.time + timeDelta)));
+            }
+            selectedKeyframes.clear();
+            selectedKeyframes.addAll(newSelection);
+            
+            if (selectedKeyframeFrame >= 0) {
+                selectedKeyframeFrame = (int) Math.round((selectedKeyframeFrame / (double) FRAME_RATE + timeDelta) * FRAME_RATE);
+                selectedKeyframeFrame = Math.max(0, selectedKeyframeFrame);
+            }
+            
+            buildTrackList();
+            repaint();
+        }
     }
     
     private void stepFrame(int delta) {
@@ -769,5 +1032,200 @@ public class TimelinePane extends BorderPane {
             viewOffsetX = Math.max(0, currentX - viewWidth / 2);
             repaint();
         }
+    }
+    
+    // =====================================================================
+    // Multi-Selection Methods
+    // =====================================================================
+    
+    /**
+     * Delete all selected keyframes (multi-selection aware).
+     */
+    private void deleteSelectedKeyframes() {
+        if (currentClip == null) return;
+        
+        // If multi-selection is active
+        if (!selectedKeyframes.isEmpty()) {
+            List<DeleteKeyframesCommand.KeyframeSelection> toDelete = new ArrayList<>();
+            for (SelectedKeyframe sk : selectedKeyframes) {
+                toDelete.add(new DeleteKeyframesCommand.KeyframeSelection(sk.track.getTargetPath(), sk.time));
+            }
+            EditorContext.getInstance().getCommandStack().execute(
+                new DeleteKeyframesCommand(currentClip, toDelete)
+            );
+            selectedKeyframes.clear();
+            selectedTrack = null;
+            selectedKeyframeFrame = -1;
+            buildTrackList();
+            repaint();
+            return;
+        }
+        
+        // Fall back to single selection
+        if (selectedTrack != null && selectedKeyframeFrame >= 0) {
+            List<DeleteKeyframesCommand.KeyframeSelection> single = new ArrayList<>();
+            single.add(new DeleteKeyframesCommand.KeyframeSelection(
+                selectedTrack.getTargetPath(), selectedKeyframeFrame / (double) FRAME_RATE));
+            EditorContext.getInstance().getCommandStack().execute(
+                new DeleteKeyframesCommand(currentClip, single)
+            );
+            selectedTrack = null;
+            selectedKeyframeFrame = -1;
+            buildTrackList();
+            repaint();
+        }
+    }
+    
+    /**
+     * Copy selected keyframes to clipboard.
+     */
+    private void copySelectedKeyframes() {
+        clipboard.clear();
+        
+        // Find the earliest time for relative positioning
+        double earliestTime = Double.MAX_VALUE;
+        
+        // Collect keyframes to copy
+        List<SelectedKeyframe> toCopy = new ArrayList<>();
+        if (!selectedKeyframes.isEmpty()) {
+            toCopy.addAll(selectedKeyframes);
+        } else if (selectedTrack != null && selectedKeyframeFrame >= 0) {
+            toCopy.add(new SelectedKeyframe(selectedTrack, selectedKeyframeFrame / (double) FRAME_RATE));
+        }
+        
+        if (toCopy.isEmpty()) return;
+        
+        // Find earliest time
+        for (SelectedKeyframe sk : toCopy) {
+            earliestTime = Math.min(earliestTime, sk.time);
+        }
+        clipboardReferenceTime = earliestTime;
+        
+        // Copy keyframes with relative times
+        for (SelectedKeyframe sk : toCopy) {
+            KeyframeTrack<?> track = sk.track;
+            Keyframe<?> kf = track.getKeyframeAt(sk.time);
+            if (kf == null) {
+                // Try to find by approximate time
+                for (Keyframe<?> k : track.getKeyframes()) {
+                    if (Math.abs(k.getTime() - sk.time) < 0.001) {
+                        kf = k;
+                        break;
+                    }
+                }
+            }
+            if (kf != null) {
+                double relativeTime = kf.getTime() - earliestTime;
+                clipboard.add(new PasteKeyframesCommand.CopiedKeyframe(
+                    track.getTargetPath(),
+                    relativeTime,
+                    kf.getValue(),
+                    kf.getInterpolator(),
+                    track.getPropertyType()
+                ));
+            }
+        }
+    }
+    
+    /**
+     * Paste keyframes from clipboard at current time.
+     */
+    private void pasteKeyframes() {
+        if (clipboard.isEmpty() || currentClip == null) return;
+        
+        double pasteTime = EditorContext.getInstance().getCurrentTime();
+        
+        EditorContext.getInstance().getCommandStack().execute(
+            new PasteKeyframesCommand(currentClip, new ArrayList<>(clipboard), pasteTime)
+        );
+        
+        buildTrackList();
+        repaint();
+    }
+    
+    /**
+     * Select all keyframes in the current clip.
+     */
+    private void selectAllKeyframes() {
+        if (currentClip == null) return;
+        
+        selectedKeyframes.clear();
+        for (KeyframeTrack<?> track : currentClip.getTracks()) {
+            for (Keyframe<?> kf : track.getKeyframes()) {
+                selectedKeyframes.add(new SelectedKeyframe(track, kf.getTime()));
+            }
+        }
+        repaint();
+    }
+    
+    /**
+     * Clear all keyframe selection.
+     */
+    private void clearKeyframeSelection() {
+        selectedKeyframes.clear();
+        selectedTrack = null;
+        selectedKeyframeFrame = -1;
+        isBoxSelecting = false;
+        repaint();
+    }
+    
+    /**
+     * Check if a keyframe is selected (multi-selection aware).
+     */
+    private boolean isKeyframeSelected(KeyframeTrack<?> track, double time) {
+        // Check multi-selection
+        for (SelectedKeyframe sk : selectedKeyframes) {
+            if (sk.track == track && Math.abs(sk.time - time) < 0.001) {
+                return true;
+            }
+        }
+        // Check single selection
+        if (track == selectedTrack) {
+            double singleTime = selectedKeyframeFrame / (double) FRAME_RATE;
+            return Math.abs(singleTime - time) < 0.001;
+        }
+        return false;
+    }
+    
+    /**
+     * Get count of selected keyframes.
+     */
+    public int getSelectedKeyframeCount() {
+        if (!selectedKeyframes.isEmpty()) {
+            return selectedKeyframes.size();
+        }
+        return (selectedTrack != null && selectedKeyframeFrame >= 0) ? 1 : 0;
+    }
+    
+    // =====================================================================
+    // Onion Skinning Accessors
+    // =====================================================================
+    
+    /**
+     * Check if onion skinning is enabled.
+     */
+    public boolean isOnionSkinningEnabled() {
+        return onionSkinningEnabled;
+    }
+    
+    /**
+     * Get number of frames to show before current frame in onion skinning.
+     */
+    public int getOnionFramesBefore() {
+        return onionFramesBefore;
+    }
+    
+    /**
+     * Get number of frames to show after current frame in onion skinning.
+     */
+    public int getOnionFramesAfter() {
+        return onionFramesAfter;
+    }
+    
+    /**
+     * Get the frame rate for time conversion.
+     */
+    public double getFrameRate() {
+        return FRAME_RATE;
     }
 }

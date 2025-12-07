@@ -5,4 +5,5 @@ com\animstudio\editor\ui\export\ExportDialog$1.class
 com\animstudio\editor\tools\SelectTool$1.class
 entity\Mob$1.class
 com\animstudio\editor\tools\BoneTool$1.class
+com\animstudio\editor\ui\canvas\CanvasPane$2.class
 com\animstudio\editor\ui\canvas\CanvasPane$1.class

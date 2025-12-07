@@ -1,6 +1,8 @@
 package com.animstudio.editor.ui.inspector;
 
 import com.animstudio.core.model.Bone;
+import com.animstudio.core.model.Skeleton;
+import com.animstudio.core.model.Slot;
 import com.animstudio.editor.EditorContext;
 import com.animstudio.editor.commands.MoveBoneCommand;
 import com.animstudio.editor.commands.RotateBoneCommand;
@@ -28,6 +30,10 @@ public class InspectorPane extends VBox {
     private final Spinner<Double> scaleYSpinner;
     private final Spinner<Double> lengthSpinner;
     private final ColorPicker colorPicker;
+    
+    // Slot/Attachment inspector (embedded)
+    private final AttachmentInspectorPane attachmentInspector;
+    private final TitledPane attachmentSection;
     
     private boolean updating = false;
     
@@ -115,6 +121,12 @@ public class InspectorPane extends VBox {
         setSetupButton.setOnAction(e -> setAsSetupPose());
         setSetupButton.setMaxWidth(Double.MAX_VALUE);
         
+        // Attachment inspector section
+        attachmentInspector = new AttachmentInspectorPane();
+        attachmentSection = new TitledPane("Slot / Attachment", attachmentInspector);
+        attachmentSection.setCollapsible(true);
+        attachmentSection.setExpanded(false);
+        
         // Add all sections
         getChildren().addAll(
             title,
@@ -123,6 +135,7 @@ public class InspectorPane extends VBox {
             new Separator(),
             transformPane,
             appearancePane,
+            attachmentSection,
             new Separator(),
             resetButton,
             setSetupButton
@@ -209,6 +222,7 @@ public class InspectorPane extends VBox {
             scaleXSpinner.setDisable(true);
             scaleYSpinner.setDisable(true);
             lengthSpinner.setDisable(true);
+            attachmentInspector.setTargetBone(null);
         } else {
             nameLabel.setText("Bone: " + bone.getName());
             nameField.setText(bone.getName());
@@ -227,6 +241,9 @@ public class InspectorPane extends VBox {
             scaleXSpinner.getValueFactory().setValue(bone.getScaleX());
             scaleYSpinner.getValueFactory().setValue(bone.getScaleY());
             lengthSpinner.getValueFactory().setValue(bone.getLength());
+            
+            // Update attachment inspector for this bone's slot
+            attachmentInspector.setTargetBone(bone);
         }
         
         updating = false;
@@ -234,6 +251,7 @@ public class InspectorPane extends VBox {
     
     public void refresh() {
         setTarget(target);
+        attachmentInspector.refresh();
     }
     
     private void applyName() {

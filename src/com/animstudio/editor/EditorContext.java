@@ -1,5 +1,6 @@
 package com.animstudio.editor;
 
+import com.animstudio.automation.RuleEngine;
 import com.animstudio.core.animation.AnimationClip;
 import com.animstudio.core.animation.AnimationState;
 import com.animstudio.core.event.EngineEventBus;
@@ -65,6 +66,9 @@ public class EditorContext {
     private IKManager ikManager;
     private final List<DeformableMesh> meshes = new ArrayList<>();
     private String statusMessage = "";
+    
+    // Automation rule engine
+    private final RuleEngine ruleEngine = new RuleEngine();
     
     // Asset library
     private final AssetLibrary assetLibrary = new AssetLibrary();
@@ -430,6 +434,10 @@ public class EditorContext {
     // === Asset Library ===
     
     public AssetLibrary getAssetLibrary() { return assetLibrary; }
+    
+    // === Automation Rules ===
+    
+    public RuleEngine getRuleEngine() { return ruleEngine; }
     
     // === Tool Support ===
     

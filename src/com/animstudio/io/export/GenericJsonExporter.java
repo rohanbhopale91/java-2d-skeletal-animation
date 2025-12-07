@@ -2,6 +2,11 @@ package com.animstudio.io.export;
 
 import com.animstudio.core.animation.AnimationClip;
 import com.animstudio.core.animation.BoneKeyframe;
+import com.animstudio.core.ik.IKConstraint;
+import com.animstudio.core.ik.IKManager;
+import com.animstudio.core.mesh.DeformableMesh;
+import com.animstudio.core.mesh.MeshTriangle;
+import com.animstudio.core.mesh.MeshVertex;
 import com.animstudio.core.model.Bone;
 import com.animstudio.core.model.Skeleton;
 import com.animstudio.editor.project.AnimationProject;
@@ -9,6 +14,7 @@ import com.google.gson.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Exports animation data to a simple, human-readable JSON format.
@@ -117,6 +123,81 @@ public class GenericJsonExporter {
             bones.add(boneObj);
         }
         skelObj.add("bones", bones);
+        
+        // Export IK constraints
+        IKManager ikManager = skeleton.getIKManager();
+        if (ikManager != null && !ikManager.getConstraints().isEmpty()) {
+            JsonArray ikArray = new JsonArray();
+            for (IKConstraint c : ikManager.getConstraints()) {
+                JsonObject ikObj = new JsonObject();
+                ikObj.addProperty("name", c.getName());
+                ikObj.addProperty("mix", c.getMix());
+                ikObj.addProperty("bendPositive", c.isBendPositive());
+                
+                JsonArray chainBones = new JsonArray();
+                for (Bone b : c.getBones()) {
+                    chainBones.add(b.getName());
+                }
+                ikObj.add("bones", chainBones);
+                
+                if (c.getTarget() != null) {
+                    ikObj.addProperty("target", c.getTarget().getName());
+                }
+                ikArray.add(ikObj);
+            }
+            skelObj.add("ikConstraints", ikArray);
+        }
+        
+        // Export meshes
+        List<DeformableMesh> meshes = skeleton.getMeshes();
+        if (meshes != null && !meshes.isEmpty()) {
+            JsonArray meshArray = new JsonArray();
+            for (DeformableMesh mesh : meshes) {
+                JsonObject meshObj = new JsonObject();
+                meshObj.addProperty("name", mesh.getName());
+                meshObj.addProperty("vertexCount", mesh.getVertexCount());
+                meshObj.addProperty("triangleCount", mesh.getTriangleCount());
+                
+                // Vertices
+                JsonArray verts = new JsonArray();
+                for (MeshVertex v : mesh.getVertices()) {
+                    JsonObject vObj = new JsonObject();
+                    vObj.addProperty("x", v.x);
+                    vObj.addProperty("y", v.y);
+                    vObj.addProperty("u", v.u);
+                    vObj.addProperty("v", v.v);
+                    
+                    if (v.getWeightCount() > 0) {
+                        JsonArray weights = new JsonArray();
+                        int[] bi = v.getBoneIndices();
+                        float[] bw = v.getBoneWeights();
+                        for (int i = 0; i < v.getWeightCount(); i++) {
+                            JsonObject wObj = new JsonObject();
+                            wObj.addProperty("bone", bi[i]);
+                            wObj.addProperty("weight", bw[i]);
+                            weights.add(wObj);
+                        }
+                        vObj.add("weights", weights);
+                    }
+                    verts.add(vObj);
+                }
+                meshObj.add("vertices", verts);
+                
+                // Triangles
+                JsonArray tris = new JsonArray();
+                for (MeshTriangle t : mesh.getTriangles()) {
+                    JsonArray tri = new JsonArray();
+                    tri.add(t.v1);
+                    tri.add(t.v2);
+                    tri.add(t.v3);
+                    tris.add(tri);
+                }
+                meshObj.add("triangles", tris);
+                
+                meshArray.add(meshObj);
+            }
+            skelObj.add("meshes", meshArray);
+        }
         
         return skelObj;
     }
